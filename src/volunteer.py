@@ -189,6 +189,34 @@ def select_volunteer(page: ft.Page, menu_return, user_id):
         content
     )
 
+def accomplishments(page: ft.Page, user_id):
+    page.clean()
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT PKT FROM WOLONTARIUSZE WHERE id_wolontariusza = %s;", (str(user_id),))
+    points = cur.fetchall()
+    print(points)
+    points = points[0]['pkt']
+    print(points)
+    if points < 15:
+        medal_path = "src/assets/bronze_medal.png"   
+    elif points < 50:
+        medal_path = "src/assets/silver_medal.png"
+    else:
+        medal_path = "src/assets/gold_medal.png"
+
+    content = ft.Column(
+            controls = [
+                ft.Image(src = medal_path),
+                ft.Text("Udzielonych pomocy", size = 20, color = ft.Colors.BLACK),
+                ft.Text(f"{points}", size = 20, color = ft.Colors.BLACK),
+                ft.FilledButton("Pobierz certyfikat", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+                ft.FilledButton("Przysługujące zniżki", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+            ]
+        )
+
+    page.add(content)
+
 def view_profile(page: ft.Page, user_id):
     page.clean()
     conn = db.get_db_connection()
