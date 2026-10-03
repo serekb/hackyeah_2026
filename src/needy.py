@@ -22,7 +22,7 @@ def select_needy(page: ft.Page, menu_return, user_id):
 
     content = ft.Column(
         controls = [
-            ft.FilledButton("DODAJ POTRZEBĘ", on_click=lambda e: add_need(page, user_id), 
+            ft.FilledButton("DODAJ POTRZEBĘ", on_click=lambda e: add_need(page, user_id, menu_return), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
             ft.FilledButton("MOJE POTRZEBY", on_click=lambda e: view_need_list(page, user_id),
                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
@@ -35,31 +35,85 @@ def select_needy(page: ft.Page, menu_return, user_id):
         content
     )
 
-def add_need(page: ft.Page, user_id):
+def add_need(page: ft.Page, user_id, menu_return):
     page.clean()
+    
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_needy(page, menu_return, user_id), width=150, height=50),
+            padding=10  
+        ),
+        leading_width=200
+    )
+    
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT nazwa_potrzeba FROM potrzeba")
+    cur.execute("SELECT DISTINCT nazwa_potrzeba FROM potrzeba")
     categories = cur.fetchall()
     
     category_list = [category['nazwa_potrzeba'] for category in categories]
+    
+    selected_category = [None]
+    error_text = ft.Text("", color=ft.Colors.RED, size=16)
+    
+    category_buttons = []
+    
+    def select_category(cat_name):
+        selected_category[0] = cat_name
+        for btn in category_buttons:
+            if btn.content == cat_name:
+                btn.style = ft.ButtonStyle(bgcolor="#4CAF50") # Highlighted color
+            else:
+                btn.style = ft.ButtonStyle(bgcolor="#132434") # Default color
+        error_text.value = ""
+        page.update()
+        
+    for category_name in category_list:
+        btn = ft.FilledButton(
+            category_name,
+            on_click=lambda e, cat=category_name: select_category(cat),
+            style=ft.ButtonStyle(bgcolor="#132434"),
+            width=200,
+            height=50,
+        )
+        category_buttons.append(btn)
+        
+    description_field = ft.TextField(label="Wpisz krótki opis potrzeby (opcjonalnie)", multiline=True, width=400, height=100)
+
+    def submit_need():
+        if not selected_category[0]:
+            error_text.value = "Błąd: Musisz wybrać kategorię!"
+            page.update()
+            return
+            
+        try:
+            ins_conn = db.get_db_connection()
+            ins_cur = ins_conn.cursor()
+            ins_cur.execute(
+                "INSERT INTO potrzeba (nazwa_potrzeba, opis, id_potrzebujacego) VALUES (%s, %s, %s)",
+                (selected_category[0], description_field.value, user_id)
+            )
+            ins_conn.commit()
+            ins_cur.close()
+            ins_conn.close()
+            
+            snack = ft.SnackBar(ft.Text("Potrzeba została pomyślnie dodana!"))
+            page.overlay.append(snack)
+            snack.open = True
+            
+            # Wróć do menu głównego potrzebującego po pomyślnym dodaniu
+            select_needy(page, menu_return, user_id)
+        except Exception as e:
+            error_text.value = f"Błąd bazy danych: {e}"
+            page.update()
 
     content = ft.Column(
         controls=[
             ft.Text("WYBIERZ KATEGORIĘ", size=20, color=ft.Colors.BLACK),
-            *[
-                ft.FilledButton(
-                    category_name,
-                    on_click=lambda e, cat=category_name: select_category(cat),
-                    style=ft.ButtonStyle(bgcolor="#132434"),
-                    width=200,
-                    height=50,
-                )
-                for category_name in category_list
-            ],
-            
+            *category_buttons,
+            error_text,
             ft.Text("KRÓTKI OPIS", size=20, color=ft.Colors.BLACK),
-            ft.TextField(label="Wpisz krótki opis potrzeby", multiline=True, width=400, height=100),
+            description_field,
             ft.FilledButton("DODAJ", on_click=lambda e: submit_need(), style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
         ]
     )

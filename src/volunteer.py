@@ -1,7 +1,18 @@
 import flet as ft
 import database as db
 
-def view_accepted_needs(page: ft.Page, user_id):
+def view_accepted_needs(page: ft.Page, user_id, menu_return):
+    page.clean()
+    
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
+            padding=10  
+        ),
+        leading_width=200,
+        bgcolor=ft.Colors.TRANSPARENT 
+    )
+    
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT id_potrzeba FROM PRZYPISANIE WHERE id_wolontariusza = %s;", (str(user_id),))
@@ -99,8 +110,18 @@ def view_accepted_needs(page: ft.Page, user_id):
 
     page.add(view)
 
-def new_needs(page, user_id):
+def new_needs(page, user_id, menu_return):
     page.clean()
+    
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
+            padding=10  
+        ),
+        leading_width=200,
+        bgcolor=ft.Colors.TRANSPARENT 
+    )
+    
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s);", (str(user_id),))
@@ -174,9 +195,9 @@ def select_volunteer(page: ft.Page, menu_return, user_id):
 
     content = ft.Column(
         controls = [
-            ft.FilledButton("PRZYJĘTE POTRZEBY", on_click=lambda e: view_accepted_needs(page, user_id),
+            ft.FilledButton("PRZYJĘTE POTRZEBY", on_click=lambda e: view_accepted_needs(page, user_id, menu_return),
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
-            ft.FilledButton("NOWE POTRZEBY", on_click=lambda e: new_needs(page, user_id),
+            ft.FilledButton("NOWE POTRZEBY", on_click=lambda e: new_needs(page, user_id, menu_return),
                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
             ft.FilledButton("POSTĘPY", on_click=lambda e: accomplishments(page, user_id), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
