@@ -8,7 +8,9 @@ authors = [
     { name = "Flet developer", email = "you@example.com" }
 ]
 dependencies = [
-    "flet>=0.85.3"
+    "flet>=0.85.3",
+    "psycopg2-binary",
+    "python-dotenv"
 ]
 
 [dependency-groups]

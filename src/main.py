@@ -10,7 +10,6 @@ def main(page: ft.Page):
         page.update()
         page.window.height = 750
         page.window.width = 450
-        page.window.resizable = False
         page.window_center = True
         page.update()
 
@@ -19,8 +18,10 @@ def main(page: ft.Page):
         page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
         content = ft.Column(
             controls = [
-                ft.FilledButton("Potrzebujący", on_click=lambda e: lg.run_login(page, menu, "Potrzebujący"), width=200, height=50),
-                ft.FilledButton("Wolontariusz", on_click=lambda e: lg.run_login(page, menu, "Wolontariusz"), width=200, height=50),
+                ft.FilledButton(content = ft.Text("Potrzebujący", size=30), on_click=lambda e: lg.run_login(page, menu, "Potrzebujący"),
+                                style=ft.ButtonStyle(bgcolor="#8b0333"), width=0.9*page.window.width, height=0.4*page.window.height,),
+                ft.FilledButton(content = ft.Text("Wolontariusz", size=30), on_click=lambda e: lg.run_login(page, menu, "Wolontariusz"),
+                                style=ft.ButtonStyle(bgcolor="#132434"), width=0.9*page.window.width, height=0.4*page.window.height,),
             ],
             alignment=ft.MainAxisAlignment.CENTER
         )
