@@ -5,7 +5,7 @@ def select_volunteer(page: ft.Page, menu_return):
 
     page.appbar = ft.AppBar(
         leading=ft.Container(
-            content=ft.FilledButton("MENU", on_click=lambda e: menu_return(), width=150, height=50),
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: menu_return(), width=150, height=50),
             padding=10  
         ),
         leading_width=200,
