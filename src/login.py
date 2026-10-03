@@ -21,9 +21,7 @@ def verify_login(page, menu_return, user_type, number, password):
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM HASLA WHERE nr_tel = %s;", (str(number),))
-    print(type(number))
     user = cur.fetchone()
-    print(user)
     if not user:
         login_failed(page, menu_return, user_type, "login_error")
     elif user['haslo'] != password:
@@ -53,7 +51,7 @@ def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
         img_src = "src/assets/volunteer.png"
 
     if login_fail == "login_error":
-        message = "Nieprawidłowy email"
+        message = "Nieprawidłowy numer telefonu"
     elif login_fail == "password_error":
         message = "Nieprawidłowe hasło"
     else:
