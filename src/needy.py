@@ -129,7 +129,7 @@ def view_need_list(page: ft.Page, user):
     ]
     page.add(content)
 
-def view_profile(page: ft.Page, user):
+def view_profile(page: ft.Page, user_id):
     page.clean()
     conn = db.get_db_connection()
     cur = conn.cursor()
@@ -142,9 +142,9 @@ def view_profile(page: ft.Page, user):
                 content = ft.Column(
                     controls = [
                         ft.Text(f"Imię", size=15, color=ft.Colors.BLACK),
-                        ft.TextField(value=user['imie']),
+                        ft.TextField(value=user['imie'], read_only=True),
                         ft.Text(f"Nazwisko", size=15, color=ft.Colors.BLACK),
-                        ft.TextField(value=user['nazwisko']),
+                        ft.TextField(value=user['nazwisko'], read_only=True),
                         ft.Text(f"Adres", size=15, color=ft.Colors.BLACK),
                         ft.TextField(value=user['adres_potrzebujacego']),
                         ft.Text(f"Numer telefonu", size=15, color=ft.Colors.BLACK),
@@ -160,7 +160,7 @@ def view_profile(page: ft.Page, user):
     )
     page.add(content)
 
-def edit_profile(page: ft.Page, user_id):
+def change_password(page: ft.Page, user_id):
     page.clean()
     conn = db.get_db_connection()
     cur = conn.cursor()
@@ -197,3 +197,9 @@ def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: s
     cur.execute("UPDATE hasla SET haslo = %s WHERE id_potrzebujacego = %s;", (new_password, str(user_id)))
     conn.commit()
     page.add(ft.Text("Hasło zostało zmienione", size=15, color=ft.Colors.GREEN))
+
+def delete_account(page, user_id):
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT haslo FROM hasla WHERE id_potrzebujacego = %s;", (str(user_id),)) #usuwanie uzytkownika o id = user_id
+    user = cur.fetchone()
