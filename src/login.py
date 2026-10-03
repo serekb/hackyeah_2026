@@ -20,11 +20,13 @@ def register_user(user_type):
 def verify_login(page, menu_return, user_type, number, password):
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute(f"SELECT * FROM HASLA WHERE nr_tel == {number};")
+    cur.execute("SELECT * FROM HASLA WHERE nr_tel = %s;", (str(number),))
+    print(type(number))
     user = cur.fetchone()
+    print(user)
     if not user:
         login_failed(page, menu_return, user_type, "login_error")
-    elif user[2] != password:
+    elif user['haslo'] != password:
         login_failed(page, menu_return, user_type, "password_error")
     else:
         login_successful(page, menu_return, user_type)
