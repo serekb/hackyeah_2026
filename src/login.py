@@ -1,13 +1,13 @@
 import flet as ft
 import database as db
 
-def login_successful(page, menu_return, user_type):
+def login_successful(page, menu_return, user_type, user_id):
     if user_type == "Potrzebujący":
         import needy as nd
-        nd.select_needy(page, menu_return)
+        nd.select_needy(page, menu_return, user_id)
     elif user_type == "Wolontariusz":
         import volunteer as vl
-        vl.select_volunteer(page, menu_return)
+        vl.select_volunteer(page, menu_return, user_id)
     else:
         pass #jakis wyjatek idk
 
@@ -29,7 +29,7 @@ def verify_login(page, menu_return, user_type, number, password):
     elif user['haslo'] != password:
         login_failed(page, menu_return, user_type, "password_error")
     else:
-        login_successful(page, menu_return, user_type)
+        login_successful(page, menu_return, user_type, user['id'])
 
 
 def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
