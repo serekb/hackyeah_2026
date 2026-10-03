@@ -24,9 +24,9 @@ def select_needy(page: ft.Page, menu_return, user_id):
         controls = [
             ft.FilledButton("DODAJ POTRZEBĘ", on_click=lambda e: add_need(page, user_id), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
-            ft.FilledButton("MOJE POTRZEBY", on_click=lambda e: view_need_list(user_id),
+            ft.FilledButton("MOJE POTRZEBY", on_click=lambda e: view_need_list(page, user_id),
                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("MOJE KONTO", on_click=lambda e: view_profile(user_id), 
+            ft.FilledButton("MOJE KONTO", on_click=lambda e: view_profile(page, user_id), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50)
         ]
     )
@@ -128,3 +128,72 @@ def view_need_list(page: ft.Page, user):
         )
     ]
     page.add(content)
+
+def view_profile(page: ft.Page, user):
+    page.clean()
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
+    user = cur.fetchone()
+    content = ft.Column(
+        controls = [
+            ft.Text("MOJE KONTO", size=20, color=ft.Colors.BLACK),
+            ft.Container(
+                content = ft.Column(
+                    controls = [
+                        ft.Text(f"Imię", size=15, color=ft.Colors.BLACK),
+                        ft.TextField(value=user['imie']),
+                        ft.Text(f"Nazwisko", size=15, color=ft.Colors.BLACK),
+                        ft.TextField(value=user['nazwisko']),
+                        ft.Text(f"Adres", size=15, color=ft.Colors.BLACK),
+                        ft.TextField(value=user['adres_potrzebujacego']),
+                        ft.Text(f"Numer telefonu", size=15, color=ft.Colors.BLACK),
+                        ft.TextField(value=user['nr_tel'])
+                    ]
+                )
+            ),
+            ft.FilledButton("ZMIEŃ HASŁO", on_click=lambda e: change_password(page, user['id_potrzebujacego']),
+                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+            ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user),
+                                         style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),         
+        ]
+    )
+    page.add(content)
+
+def edit_profile(page: ft.Page, user_id):
+    page.clean()
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
+    user = cur.fetchone()
+    passwordbox_old = ft.TextField(label="Stare hasło", password=True, can_reveal_password=True)
+    passwordbox_new = ft.TextField(label="Nowe hasło", password=True, can_reveal_password=True)
+    passwordbox_confirm = ft.TextField(label="Powtórz nowe hasło", password=True, can_reveal_password=True)
+    content = ft.Column(
+        controls = [
+            ft.Text("Wpisz stare hasło", size=15, color=ft.Colors.BLACK),
+            passwordbox_old,
+            ft.Text("Wpisz nowe hasło", size=15, color=ft.Colors.BLACK),
+            passwordbox_new,
+            ft.Text("Powtórz nowe hasło", size=15, color=ft.Colors.BLACK),
+            passwordbox_confirm,
+            ft.FilledButton("ZAPISZ ZMIANY", on_click=lambda e: save_changes(page, user_id, passwordbox_old.value, passwordbox_new.value, passwordbox_confirm.value),
+                            style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+        ]
+    )
+    page.add(content)
+
+def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: str, confirm_password: str):
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT haslo FROM hasla WHERE id_potrzebujacego = %s;", (str(user_id),))
+    user = cur.fetchone()
+    if user['haslo'] != old_password:
+        page.add(ft.Text("Nieprawidłowe stare hasło", size=15, color=ft.Colors.RED))
+        return
+    if new_password != confirm_password:
+        page.add(ft.Text("Nowe hasła nie są zgodne", size=15, color=ft.Colors.RED))
+        return
+    cur.execute("UPDATE hasla SET haslo = %s WHERE id_potrzebujacego = %s;", (new_password, str(user_id)))
+    conn.commit()
+    page.add(ft.Text("Hasło zostało zmienione", size=15, color=ft.Colors.GREEN))
