@@ -1,58 +1,151 @@
 import flet as ft
+import database as db
 
-def view_accepted_needs(page, user):
+def view_accepted_needs(page: ft.Page, user_id):
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id_potrzeba FROM PRZYPISANIE WHERE id_wolontariusza = %s;", (str(user_id),))
+    needs = cur.fetchall()
+    
+    need_categories = []
+    need_ids = [n['id_potrzeba'] for n in needs]
+    needy_ids = []
+    needy_numbers = []
+    needy_names = []
+    needy_surnames = []
+
+    for need_id in need_ids:
+        cur.execute("SELECT * FROM POTRZEBA WHERE id_potrzeba = %s;", (str(need_id),))
+        n = cur.fetchone()
+        need_categories.append(n['nazwa_potrzeba'])
+        needy_ids.append(n['id_potrzebujacego'])
+
+    for n_id in needy_ids:
+        cur.execute("SELECT numer_telefonu, imie, nazwisko FROM POTRZEBUJACY WHERE id_potrzebujacego = %s;", (str(n_id),))
+        needy = cur.fetchone()
+        needy_numbers.append(needy['numer_telefonu'])
+        needy_names.append(needy['imie'])
+        needy_surnames.append(needy['nazwisko'])
+
+    cur.execute("SELECT numer_telefonu FROM WOLONTARIUSZE WHERE id_wolontariusza = %s;", (str(user_id),))
+    vol = cur.fetchone()
+    volunteer_number = vol['numer_telefonu'] if vol else ""
+
+    needs_data = list(zip(need_categories, needy_numbers, needy_names, needy_surnames))
+
     page.clean()
-    content = [
-        ft.Column(
-            controls = [
-                ft.Text("PRZYJĘTE POTRZEBY", size=20, color=ft.Colors.BLACK),
-                ft.Column(
-                    controls = [
-                        ft.Container(
-                            content = [
-                                ft.Row(
-                                    controls = [
-                                        ft.Column(
-                                            controls = [
-                                                ft.Text(need.category, size=20, color=ft.Colors.WHITE),
-                                                ft.Divider(),
-                                                ft.Column(
-                                                    controls = [
-                                                        ft.Text("KOMU POMAGAM?", size=20, color=ft.Colors.WHITE),
-                                                        ft.Text(need.needy, size=15, color=ft.Colors.WHITE),
-                                                    ]
-                                                ),
-                                                ft.Divider(),
-                                                ft.Column(
-                                                    controls = [
-                                                        ft.Text("NUMER TELEFONU", size=20, color=ft.Colors.WHITE),
-                                                        ft.Text(need.volunteer.number, size=15, color=ft.Colors.WHITE),
-                                                    ]
-                                                ),
-                                                ft.Divider(),
-                                                ft.Column(
-                                                    controls = [
-                                                        ft.Text("UWAGI", size=20, color=ft.Colors.WHITE),
-                                                        ft.TextField("W TRAKCIE REALIZACJI", size=15, color=ft.Colors.WHITE), #nie wiem czy tak
-                                                    ]
-                                                )
-                                            ]
-                                        ),
-                                        ft.Image(src="src/assets/check.png", width=50, height=50, fit=ft.BoxFit.CONTAIN)
-                                    ],
-                                )                                      
-                            ],
-                            bgcolor="#8b0333") for need in user.needs]
-                    )
-                ]
-            )
-    ]
 
+    # Generujemy listę kafelków dla każdej potrzeby
+    cards = []
+    for item in needs_data:
+        cat_name, needy_phone, first_name, last_name = item
+        cards.append(
+            ft.Container(
+                bgcolor="#8b0333",
+                border_radius=10,
+                padding=15,
+                content=ft.Row(  # Tutaj pojedyncza kontrolka, bez kwadratowych nawiasów!
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Column(
+                            controls=[
+                                ft.Text(cat_name, size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                ft.Divider(color=ft.Colors.WHITE),
+                                ft.Column(
+                                    controls=[
+                                        ft.Text("KOMU POMAGAM?", size=14, color=ft.Colors.WHITE),
+                                        ft.Text(f"{first_name} {last_name}", size=16, color=ft.Colors.WHITE),
+                                    ],
+                                    spacing=2,
+                                ),
+                                ft.Divider(color=ft.Colors.WHITE),
+                                ft.Column(
+                                    controls=[
+                                        ft.Text("NUMER TELEFONU POTRZEBUJĄCEGO", size=14, color=ft.Colors.WHITE),
+                                        ft.Text(needy_phone, size=16, color=ft.Colors.WHITE),
+                                    ],
+                                    spacing=2,
+                                ),
+                                ft.Divider(color=ft.Colors.WHITE),
+                                ft.Column(
+                                    controls=[
+                                        ft.Text("UWAGI", size=14, color=ft.Colors.WHITE),
+                                        ft.TextField("W TRAKCIE REALIZACJI", color=ft.Colors.WHITE),
+                                    ],
+                                    spacing=2,
+                                ),
+                            ],
+                            expand=True,
+                        ),
+                        ft.Image(
+                            src="src/assets/check.png",
+                            width=40,
+                            height=40,
+                            fit=ft.BoxFit.CONTAIN,
+                        ),
+                    ],
+                ),
+            )
+        )
+
+    view = ft.Column(
+        scroll=ft.ScrollMode.AUTO, 
+        expand=True,
+        controls=[
+            ft.Text("PRZYJĘTE POTRZEBY", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+            *cards, 
+        ],
+    )
+
+    page.add(view)
+
+def new_needs(page, user_id):
+    page.clean()
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s);", (str(user_id),))
+    needs = cur.fetchall()
+
+    cur.execute("SELECT imie, nazwisko, id_potrzebujacego from potrzebujacy where id_potrzebujacego IN (SELECT id_potrzebujacego FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s));", (str(user_id),))
+    needy_infos = cur.fetchall()
+    content = ft.Column(
+        scroll=ft.ScrollMode.AUTO,
+        expand = True,
+        controls=[
+            ft.Text("NOWE POTRZEBY", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+            *[
+                ft.Container(
+                    bgcolor="#132434",
+                    border_radius=10,
+                    padding=15,
+                    content=ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Column(
+                                controls=[
+                                    ft.Text(needy_info['imie'] + " " + needy_info['nazwisko'], size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                    ft.Divider(color=ft.Colors.WHITE),
+                                    ft.Text(need['nazwa_potrzeba'], size=16, color=ft.Colors.WHITE),
+                                    ft.Divider(color=ft.Colors.WHITE),
+                                    ft.Text("TOTAJ BEDZIE OPIS", size=14, color=ft.Colors.WHITE),
+                                ],
+                                expand=True,
+                            ),
+                            ft.Image(
+                                src="src/assets/right_arrow.png",
+                                width=40,
+                                height=40,
+                                fit=ft.BoxFit.CONTAIN,
+                            ),
+                        ],
+                    ),
+                ) for need in needs for needy_info in needy_infos if need['id_potrzebujacego'] == needy_info['id_potrzebujacego']
+            ]
+        ]
+    )
     page.add(content)
 
-
-
-def select_volunteer(page: ft.Page, menu_return):
+def select_volunteer(page: ft.Page, menu_return, user_id):
     page.clean()
 
     page.appbar = ft.AppBar(
@@ -66,13 +159,13 @@ def select_volunteer(page: ft.Page, menu_return):
 
     content = ft.Column(
         controls = [
-            ft.FilledButton("PRZYJĘTE POTRZEBY", on_click=lambda e: view_accepted_needs(page, user),
+            ft.FilledButton("PRZYJĘTE POTRZEBY", on_click=lambda e: view_accepted_needs(page, user_id),
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
-            ft.FilledButton("NOWE POTRZEBY", on_click=lambda e: new_needs(),
+            ft.FilledButton("NOWE POTRZEBY", on_click=lambda e: new_needs(page, user_id),
                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("POSTĘPY", on_click=lambda e: accomplishments(), 
+            ft.FilledButton("POSTĘPY", on_click=lambda e: accomplishments(page, user_id), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
-            ft.FilledButton("MOJE KONTO", on_click=lambda e: view_profile(),
+            ft.FilledButton("MOJE KONTO", on_click=lambda e: view_profile(page, user_id),
                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
         ]
     )
