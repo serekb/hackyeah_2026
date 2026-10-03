@@ -112,7 +112,22 @@ def new_needs(page, user_id):
         scroll=ft.ScrollMode.AUTO,
         expand = True,
         controls=[
-            ft.Text("NOWE POTRZEBY", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+            ft.Container(
+                content = ft.Column(
+                    controls = [
+                        ft.Text("Lokalizacja", size=20, color=ft.Colors.BLACK),
+                        ft.Row(
+                            controls = [
+                                ft.TextField(label="Adres", width=100),
+                                ft.TextField(label="10km", width=100)
+                            ]
+                        ),
+                        ft.FilledButton("SZUKAJ", on_click=lambda e: filter_needs(), style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+                    ]
+                ),
+                border=ft.Border.all(3, ft.Colors.BLACK),
+                border_radius=10,
+            ),
             *[
                 ft.Container(
                     bgcolor="#132434",

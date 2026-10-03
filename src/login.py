@@ -14,8 +14,128 @@ def login_successful(page, menu_return, user_type, user_id):
 def login_failed(page, menu_return, user_type, login_fail = "ok"):
     run_login(page, menu_return, user_type, login_fail)
 
-def register_user(user_type):
-    pass
+
+def register_user(page: ft.Page, menu_return, user_type):
+    page.clean()
+
+    # Zezwalamy na przewijanie całej strony
+    page.scroll = "auto"
+
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: run_login(page, menu_return, user_type), width=150, height=40),
+            padding=10  
+        ),
+        leading_width=200
+    )
+
+    label_style = ft.TextStyle(weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900, size=12)
+    field_bgcolor = ft.Colors.WHITE
+    text_color = "#8b0333"
+
+    # Zaktualizowana funkcja generująca pola tekstowe - teraz przyjmuje argument 'hint'
+    def create_textfield(hint="", is_password=False):
+        return ft.TextField(
+            hint_text=hint,                                                # <--- Tutaj podpinamy wyszarzony tekst
+            hint_style=ft.TextStyle(color=ft.Colors.GREY_400, size=13),    # <--- Nadajemy mu jasnoszary kolor
+            password=is_password, 
+            can_reveal_password=is_password, 
+            bgcolor=field_bgcolor, 
+            color=text_color, 
+            border_color=ft.Colors.TRANSPARENT, 
+            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, size=14),
+            height=40,              
+            content_padding=10      
+        )
+
+    # Inicjalizacja pól z przykładowymi danymi bazującymi na Twoim zdjęciu
+    phone_field = create_textfield(hint="np. 567865432")
+    password_field = create_textfield(hint="min. 8 znaków", is_password=True)
+    name_field = create_textfield(hint="np. Kasia")
+    surname_field = create_textfield(hint="np. Wesoła")
+    address_field = create_textfield(hint="np. ul. Leśna 56")
+
+    def create_input_col(label_text, field_obj):
+        return ft.Column(
+            controls=[
+                ft.Text(label_text, style=label_style),
+                field_obj
+            ],
+            spacing=0 
+        )
+
+    def handle_registration(e):
+        print("=== DANE Z FORMULARZA ===")
+        print(f"Telefon: {phone_field.value}")
+        print(f"Hasło: {password_field.value}")
+        print(f"Imię: {name_field.value}")
+        print(f"Nazwisko: {surname_field.value}")
+        print(f"Adres: {address_field.value}")
+        print("Zapis do bazy tymczasowo wyłączony.")
+        run_login(page, menu_return, user_type)
+
+    form_content = ft.Container(
+        content=ft.Column(
+            controls=[
+                create_input_col("NUMER TELEFONU", phone_field),
+                create_input_col("HASŁO", password_field),
+                create_input_col("IMIĘ", name_field),
+                create_input_col("NAZWISKO", surname_field),
+                create_input_col("ADRES", address_field),
+                
+                ft.Container(height=5), 
+                ft.Text("ZAŚWIADCZENIE Z ORGANIZACJI", style=label_style),
+                ft.FilledButton(
+                    "DODAJ ZAŚWIADCZENIE",
+                    icon="add_circle",
+                    style=ft.ButtonStyle(
+                        color=ft.Colors.BLUE_GREY_900,
+                        bgcolor=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=10),
+                    ),
+                    width=300,
+                    height=45, 
+                )
+            ],
+            spacing=5 
+        ),
+        padding=15, 
+        border=ft.Border.all(2, ft.Colors.BLUE_GREY_900),
+        bgcolor="#E8EEF2",
+        border_radius=15,
+    )
+
+    content = ft.Column(
+        controls=[
+            ft.Container(
+                content=ft.Text("REJESTRACJA", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+                padding=5
+            ),
+            form_content,
+            ft.Container(height=10), 
+            
+            ft.FilledButton(
+                "ZAREJESTRUJ SIĘ", 
+                on_click=handle_registration,
+                style=ft.ButtonStyle(
+                    bgcolor=text_color,
+                    shape=ft.RoundedRectangleBorder(radius=10)
+                ),
+                width=300, 
+                height=50 
+            )
+        ],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        width=350,
+        scroll="auto" 
+    )
+
+    page.add(
+        ft.Row(
+            controls=[content],
+            alignment=ft.MainAxisAlignment.CENTER
+        )
+    )
 
 def verify_login(page, menu_return, user_type, number, password):
     conn = db.get_db_connection()
@@ -72,8 +192,8 @@ def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
                 ft.Row(
                     controls=[
                         ft.Text("Nie masz konta?", color=ft.Colors.BLACK),
-                        ft.FilledButton("Zarejestruj się", on_click=lambda e: register_user(user_type),
-                                        style=ft.ButtonStyle(bgcolor="#132434"),),
+                ft.FilledButton("Zarejestruj się", on_click=lambda e: register_user(page, menu_return, user_type),
+                style=ft.ButtonStyle(bgcolor="#132434"),),
                     ]
                 )
             ]
