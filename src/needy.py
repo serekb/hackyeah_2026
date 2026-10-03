@@ -65,68 +65,106 @@ def add_need(page: ft.Page, user_id):
     )
     page.add(content)
 
-def view_need_list(page: ft.Page, user):
+def view_need_list(page: ft.Page, user_id):
     page.clean()
-    active_needs = []
-    pending_needs = []
-    for need in user.needs:
-        if need.completed:
-            pending_needs.append(need)
-        else:
-            active_needs.append(need)
-    content = [
-        ft.Column(
-            controls = [
-                ft.Text("MOJE POTRZEBY", size=20, color=ft.Colors.BLACK),
-                ft.Column(
-                    controls = [
-                        [ft.Container(
-                            content = [
-                                ft.Row(
-                                    controls = [
-                                        ft.Column(
-                                            controls = [
-                                                ft.Text(need.category, size=20, color=ft.Colors.WHITE),
-                                                ft.Divider(),
-                                                ft.Column(
-                                                    controls = [
-                                                        ft.Text("WOLONTARIUSZ", size=20, color=ft.Colors.WHITE),
-                                                        ft.Text(need.volunteer, size=15, color=ft.Colors.WHITE),
-                                                    ]
-                                                ),
-                                                ft.Divider(),
-                                                ft.Column(
-                                                    controls = [
-                                                        ft.Text("NUMER TELEFONU", size=20, color=ft.Colors.WHITE),
-                                                        ft.Text(need.volunteer.number, size=15, color=ft.Colors.WHITE),
-                                                    ]
-                                                )
-                                            ]
-                                        ),
-                                        ft.Image(src="src/assets/check.png", width=50, height=50, fit=ft.BoxFit.CONTAIN)
-                                    ],
-                                )                                      
-                            ],
-                            bgcolor="#8b0333") for need in active_needs]
-                    ]
-                ),
-                ft.Column(
-                    controls = [
-                        [ft.Container(
-                            content = [
-                                ft.Row(
-                                    controls = [
-                                        ft.Text(need.category, size=20, color=ft.Colors.WHITE),
-                                        ft.Image(src="src/assets/bin.png", width=50, height=50, fit=ft.BoxFit.CONTAIN)
-                                    ],
-                                )                                      
-                            ],
-                            bgcolor="#132434") for need in pending_needs]
-                    ]   
-                )
-            ]
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+
+    # 1. Potrzeby aktywne wraz z przypisanym wolontariuszem (JOIN)
+    cur.execute("""
+        SELECT 
+            p.id_potrzeba,
+            p.nazwa_potrzeba, 
+            w.imie, 
+            w.nazwisko, 
+            w.numer_telefonu 
+        FROM POTRZEBA p
+        JOIN PRZYPISANIE pr ON p.id_potrzeba = pr.id_potrzeba
+        JOIN WOLONTARIUSZE w ON pr.id_wolontariusza = w.id_wolontariusza
+        WHERE p.id_potrzebujacego = %s;
+    """, (str(user_id),))
+    active_needs = cur.fetchall()
+
+    # 2. Potrzeby oczekujące (bez przypisanego wolontariusza)
+    cur.execute("""
+        SELECT id_potrzeba, nazwa_potrzeba 
+        FROM POTRZEBA 
+        WHERE id_potrzebujacego = %s 
+          AND id_potrzeba NOT IN (SELECT id_potrzeba FROM PRZYPISANIE);
+    """, (str(user_id),))
+    pending_needs = cur.fetchall()
+
+    # Budujemy kafelki aktywnych potrzeb
+    active_cards = [
+        ft.Container(
+            bgcolor="#8b0333",
+            border_radius=8,
+            padding=15,
+            content=ft.Row(  # Pojedynczy obiekt, bez []
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text(need['nazwa_potrzeba'], size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                            ft.Divider(color=ft.Colors.WHITE),
+                            ft.Column(
+                                controls=[
+                                    ft.Text("WOLONTARIUSZ", size=14, color=ft.Colors.WHITE),
+                                    ft.Text(f"{need['imie']} {need['nazwisko']}", size=15, color=ft.Colors.WHITE),
+                                ],
+                                spacing=2,
+                            ),
+                            ft.Divider(color=ft.Colors.WHITE),
+                            ft.Column(
+                                controls=[
+                                    ft.Text("NUMER TELEFONU", size=14, color=ft.Colors.WHITE),
+                                    ft.Text(need['numer_telefonu'], size=15, color=ft.Colors.WHITE),
+                                ],
+                                spacing=2,
+                            ),
+                        ],
+                        expand=True,
+                    ),
+                    ft.Image(src="src/assets/check.png", width=40, height=40, fit=ft.BoxFit.CONTAIN),
+                ],
+            ),
         )
+        for need in active_needs
     ]
+
+    # Budujemy kafelki oczekujących potrzeb
+    pending_cards = [
+        ft.Container(
+            bgcolor="#132434",
+            border_radius=8,
+            padding=15,
+            margin=ft.margin.only(bottom=10),
+            content=ft.Row(  # Pojedynczy obiekt, bez []
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Text(need['nazwa_potrzeba'], size=18, color=ft.Colors.WHITE),
+                    ft.Image(src="src/assets/bin.png", width=35, height=35, fit=ft.BoxFit.CONTAIN),
+                ],
+            ),
+        )
+        for need in pending_needs
+    ]
+
+    # Główny widok – kolumna bez nawiasów kwadratowych w zmiennej content
+    content = ft.Column(
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+        controls=[
+            ft.Text("MOJE POTRZEBY", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+            
+            ft.Text("W TRAKCIE REALIZACJI", size=16, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_800),
+            *active_cards,  # Rozpakowanie listy kafelków
+            
+            ft.Text("OCZEKUJĄCE", size=16, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_800),
+            *pending_cards, # Rozpakowanie listy kafelków
+        ],
+    )
+
     page.add(content)
 
 def view_profile(page: ft.Page, user_id):
