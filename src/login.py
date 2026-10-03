@@ -1,4 +1,5 @@
 import flet as ft
+import database as db
 
 def login_successful(page, menu_return, user_type):
     if user_type == "Potrzebujący":
@@ -16,10 +17,14 @@ def login_failed(page, menu_return, user_type, login_fail = "ok"):
 def register_user(user_type):
     pass
 
-def verify_login(page, menu_return, user_type,number, password):
-    if number != "123":
+def verify_login(page, menu_return, user_type, number, password):
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM HASLA WHERE nr_tel == {number};")
+    user = cur.fetchone()
+    if not user:
         login_failed(page, menu_return, user_type, "login_error")
-    elif password != "123":
+    elif user[2] != password:
         login_failed(page, menu_return, user_type, "password_error")
     else:
         login_successful(page, menu_return, user_type)
@@ -52,7 +57,7 @@ def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
     else:
         message = ""
 
-    number_field = ft.TextField(label="Email")
+    number_field = ft.TextField(label="Numer telefonu")
     password_field = ft.TextField(label="Hasło", password=True, can_reveal_password=True)
     content = ft.Container(
         content=ft.Column(
