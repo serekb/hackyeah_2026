@@ -138,7 +138,6 @@ def view_need_list(page: ft.Page, user_id):
             bgcolor="#132434",
             border_radius=8,
             padding=15,
-            margin=ft.margin.only(bottom=10),
             content=ft.Row(  # Pojedynczy obiekt, bez []
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 controls=[

@@ -142,7 +142,7 @@ def new_needs(page, user_id):
                                     ft.Divider(color=ft.Colors.WHITE),
                                     ft.Text(need['nazwa_potrzeba'], size=16, color=ft.Colors.WHITE),
                                     ft.Divider(color=ft.Colors.WHITE),
-                                    ft.Text("TOTAJ BEDZIE OPIS", size=14, color=ft.Colors.WHITE),
+                                    ft.Text(need['opis'], size=14, color=ft.Colors.WHITE),
                                 ],
                                 expand=True,
                             ),
