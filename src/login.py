@@ -67,31 +67,42 @@ def register_user(page: ft.Page, menu_return, user_type):
         )
 
     def handle_registration(e):
+        
+        
         conn = db.get_db_connection()
         cur = conn.cursor()
+        try:
+            geolocator = Nominatim(user_agent="my_app")
+            full_address=f"Kraków,{address_field.value}"
+            location = geolocator.geocode(full_address)
 
-        geolocator = Nominatim(user_agent="my_app")
-        full_address=f"Kraków,{address_field.value}"
-        location = geolocator.geocode(full_address)
+            if location:
+                lat = location.latitude
+                lon = location.longitude
+                print(f"Znaleziono współrzędne: {lat}, {lon}")
+            else:
+                print("Nie znaleziono adresu. Sprawdź, czy nazwa ulicy jest poprawna.")
+                
+            if user_type == "Wolontariusz":
+                    cur.execute("INSERT INTO wolontariusze (imie, nazwisko,pkt,numer_telefonu,adres_wolontariusza,organizacja,dlugosc_geograficzna, szerokosc_geograficzna) VALUES (%s, %s, %s, %s,%s, %s, %s, %s)", (str(name_field.value),str(surname_field.value), 0,str(phone_field.value),str(address_field.value), str(org_field.value), str(lon), str(lat)))
+                    cur.execute("INSERT INTO hasla_wolontariuszy (nr_tel,haslo) VALUES (%s, %s)", (str(phone_field.value),str(password_field.value)))
 
-        if location:
-            lat = location.latitude
-            lon = location.longitude
-            print(f"Znaleziono współrzędne: {lat}, {lon}")
-        else:
-            print("Nie znaleziono adresu. Sprawdź, czy nazwa ulicy jest poprawna.")
+            elif user_type == "Potrzebujący":
+                    cur.execute("INSERT INTO potrzebujacy (imie, nazwisko,numer_telefonu,adres_potrzebujacego,dlugosc_geograficzna, szerokosc_geograficzna) VALUES (%s, %s, %s, %s,%s, %s)", (str(name_field.value),str(surname_field.value),str(phone_field.value),str(address_field.value), str(lon), str(lat)))
+                    cur.execute("INSERT INTO hasla_potrzebujacych (nr_tel,haslo) VALUES (%s, %s)", (str(phone_field.value),str(password_field.value)))
+            else:
+                    pass
             
-        if user_type == "Wolontariusz":
-                cur.execute("INSERT INTO wolontariusze (imie, nazwisko,pkt,numer_telefonu,adres_wolontariusza,organizacja,dlugosc_geograficzna, szerokosc_geograficzna) VALUES (%s, %s, %s, %s,%s, %s, %s, %s)", (str(name_field.value),str(surname_field.value), 0,str(phone_field.value),str(address_field.value), str(org_field.value), str(lon), str(lat)))
-                cur.execute("INSERT INTO hasla_wolontariuszy (nr_tel,haslo) VALUES (%s, %s)", (str(phone_field.value),str(password_field.value)))
+            cur.connection.commit()
 
-        elif user_type == "Potrzebujący":
-                cur.execute("INSERT INTO potrzebujacy (imie, nazwisko,pkt,numer_telefonu,adres_potrzebujacego,dlugosc_geograficzna, szerokosc_geograficzna) VALUES (%s, %s, %s, %s,%s, %s, %s)", (str(name_field.value),str(surname_field.value),str(phone_field.value),str(address_field.value), str(lon), str(lat)))
-                cur.execute("INSERT INTO hasla_potrzebujacych (nr_tel,haslo) VALUES (%s, %s)", (str(phone_field.value),str(password_field.value)))
-        else:
-                pass
-        
-        cur.connection.commit()
+        except Exception as e:
+            print("ERROR OCCURED:", str(e) )
+        finally:
+            cur.close()
+            conn.close()
+            run_login(page, menu_return, user_type)
+            
+    
         
 
     form_content = ft.Container(
