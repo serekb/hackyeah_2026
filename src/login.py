@@ -140,8 +140,17 @@ def register_user(page: ft.Page, menu_return, user_type):
 def verify_login(page, menu_return, user_type, number, password):
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM HASLA WHERE nr_tel = %s;", (str(number),))
+    
+    if user_type == "Potrzebujący":
+        cur.execute("SELECT * FROM hasla_potrzebujacych WHERE nr_tel = %s;", (str(number),))
+    elif user_type == "Wolontariusz":
+        cur.execute("SELECT * FROM hasla_wolontariuszy WHERE nr_tel = %s;", (str(number),))
+    else:
+        pass #jakis wyjatek idk
+
     user = cur.fetchone()
+
+
     if not user:
         login_failed(page, menu_return, user_type, "login_error")
     elif user['haslo'] != password:
@@ -150,6 +159,9 @@ def verify_login(page, menu_return, user_type, number, password):
         login_successful(page, menu_return, user_type, user['id'])
 
 
+    cur.close()
+    conn.close()
+    
 def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
     page.clean()
 
