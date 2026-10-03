@@ -231,7 +231,7 @@ def view_profile(page: ft.Page, user_id):
             ),
             ft.FilledButton("ZMIEŃ HASŁO", on_click=lambda e: change_password(page, user['id_wolontariusza']),
                              style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_wolontariusza']),
+            ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_wolontariusza'], "wolontariusz"),
                                          style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),         
         ]
     )
@@ -276,8 +276,11 @@ def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: s
     conn.close()
     page.add(ft.Text("Hasło zostało zmienione", size=15, color=ft.Colors.GREEN))
 
-def delete_account(page, user_id):
+def delete_account(page, user_id, role):
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT haslo FROM hasla WHERE id_wolontariusza = %s;", (str(user_id),)) #usuwanie uzytkownika o id = user_id
-    user = cur.fetchone()
+    tabela = 'wolontariusze' if role == 'wolontariusz' else 'potrzebujacy'
+    kolumna = 'id_wolontariusza' if role == 'wolontariusz' else 'id_potrzebujacego'
+    cur.execute(f"DELETE FROM {tabela} WHERE {kolumna} = %s;", (str(user_id),))
+    conn.commit()
+    conn.close()
