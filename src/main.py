@@ -11,6 +11,7 @@ def main(page: ft.Page):
         page.window.height = 750
         page.window.width = 450
         page.window_center = True
+        page.window.background_color = "#e8f0f6"
         page.update()
 
         page.appbar = None
