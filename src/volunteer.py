@@ -110,6 +110,65 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
 
     page.add(view)
 
+def filter_needs(user_id):
+    """Return unassigned needs within 1 km of the volunteer."""
+    conn = db.get_db_connection()
+    if conn is None:
+        raise ConnectionError("Nie udało się połączyć z bazą danych.")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT szerokosc_geograficzna, dlugosc_geograficzna
+                FROM wolontariusze
+                WHERE id_wolontariusza = %s;
+                """,
+                (str(user_id),),
+            )
+            volunteer = cur.fetchone()
+            if (
+                volunteer is None
+                or volunteer["szerokosc_geograficzna"] is None
+                or volunteer["dlugosc_geograficzna"] is None
+            ):
+                raise ValueError("Wolontariusz nie ma zapisanej lokalizacji.")
+
+            latitude = volunteer["szerokosc_geograficzna"]
+            longitude = volunteer["dlugosc_geograficzna"]
+            cur.execute(
+                """
+                SELECT
+                    p.id_potrzeba,
+                    p.id_potrzebujacego,
+                    p.nazwa_potrzeba,
+                    p.opis,
+                    n.imie,
+                    n.nazwisko
+                FROM potrzeba p
+                JOIN potrzebujacy n
+                  ON n.id_potrzebujacego = p.id_potrzebujacego
+                WHERE n.szerokosc_geograficzna IS NOT NULL
+                  AND n.dlugosc_geograficzna IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM przypisanie a
+                      WHERE a.id_potrzeba = p.id_potrzeba
+                  )
+                  AND 6371.0088 * 2 * ASIN(SQRT(LEAST(1.0,
+                      POWER(SIN(RADIANS(n.szerokosc_geograficzna - %s) / 2), 2)
+                      + COS(RADIANS(%s))
+                      * COS(RADIANS(n.szerokosc_geograficzna))
+                      * POWER(SIN(RADIANS(n.dlugosc_geograficzna - %s) / 2), 2)
+                  ))) <= 1;
+                """,
+                (latitude, latitude, longitude),
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
 def new_needs(page, user_id, menu_return):
     page.clean()
     
@@ -143,7 +202,7 @@ def new_needs(page, user_id, menu_return):
                                 ft.TextField(label="10km", width=100)
                             ]
                         ),
-                        ft.FilledButton("SZUKAJ", on_click=lambda e: filter_needs(), style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+                        ft.FilledButton("SZUKAJ", on_click=lambda e: filter_needs(user_id), style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
                     ]
                 ),
                 border=ft.Border.all(3, ft.Colors.BLACK),
