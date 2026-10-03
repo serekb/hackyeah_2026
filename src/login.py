@@ -1,6 +1,31 @@
 import flet as ft
 
-def run_login(page: ft.Page, menu_return, user_type):
+def login_successful(page, menu_return, user_type):
+    if user_type == "Potrzebujący":
+        import needy as nd
+        nd.select_needy(page, menu_return)
+    elif user_type == "Wolontariusz":
+        import volunteer as vl
+        vl.select_volunteer(page, menu_return)
+    else:
+        pass #jakis wyjatek idk
+
+def login_failed(page, menu_return, user_type, login_fail = "ok"):
+    run_login(page, menu_return, user_type, login_fail)
+
+def register_user(user_type):
+    pass
+
+def verify_login(page, menu_return, user_type,number, password):
+    if number != "123":
+        login_failed(page, menu_return, user_type, "login_error")
+    elif password != "123":
+        login_failed(page, menu_return, user_type, "password_error")
+    else:
+        login_successful(page, menu_return, user_type)
+
+
+def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
     page.clean()
 
     page.appbar = ft.AppBar(
@@ -16,22 +41,34 @@ def run_login(page: ft.Page, menu_return, user_type):
         return
 
     if user_type == "Potrzebujący":
-        img_src = "src/assets/needy_icon.jpg"
+        img_src = "src/assets/needy.png"
     else:
-        img_src = "src/assets/volunteer_icon.png"
+        img_src = "src/assets/volunteer.png"
 
+    if login_fail == "login_error":
+        message = "Nieprawidłowy email"
+    elif login_fail == "password_error":
+        message = "Nieprawidłowe hasło"
+    else:
+        message = ""
+
+    number_field = ft.TextField(label="Email")
+    password_field = ft.TextField(label="Hasło", password=True, can_reveal_password=True)
     content = ft.Container(
         content=ft.Column(
             controls=[
                 ft.Image(src=img_src, width=50, height=50, fit=ft.BoxFit.CONTAIN),
                 ft.Text(f"Próbujesz zalogować się jako {user_type}", size=20, color=ft.Colors.BLACK),
-                ft.TextField(label="Email"),
-                ft.TextField(label="Hasło", password=True, can_reveal_password=True),
-                ft.FilledButton("Zaloguj się", on_click=lambda e: print("Zalogowano!")),
+                number_field,
+                ft.Text(message, size=15, color=ft.Colors.RED) if message else ft.Container(),
+                password_field,
+                ft.FilledButton("Zaloguj się", on_click=lambda e: verify_login(page, menu_return, user_type, number_field.value, password_field.value),
+                                style=ft.ButtonStyle(bgcolor="#8b0333")),
                 ft.Row(
                     controls=[
-                        ft.Text("Nie masz konta?", color=ft.Colors.RED),
-                        ft.FilledButton("Zarejestruj się", on_click=lambda e: print("Zarejestrowano!"))
+                        ft.Text("Nie masz konta?", color=ft.Colors.BLACK),
+                        ft.FilledButton("Zarejestruj się", on_click=lambda e: register_user(user_type),
+                                        style=ft.ButtonStyle(bgcolor="#132434"),),
                     ]
                 )
             ]
