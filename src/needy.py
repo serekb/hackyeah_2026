@@ -1,5 +1,6 @@
 import flet as ft
 import database as db
+import login as lg
 
 class Need:
     def __init__(self, category, description, volunteer=None, needy = None, completed=False):
@@ -331,3 +332,4 @@ def delete_account(page, user_id, role):
     cur.execute(f"DELETE FROM {tabela} WHERE {kolumna} = %s;", (str(user_id),))
     conn.commit()
     conn.close()
+    lg.run_login()

@@ -1,5 +1,6 @@
 import flet as ft
 import database as db
+import login as lg
 
 def view_accepted_needs(page: ft.Page, user_id, menu_return):
     page.clean()
@@ -264,7 +265,7 @@ def view_profile(page: ft.Page, user_id):
                         ft.Text(f"Numer telefonu", size=15, color=ft.Colors.BLACK),
                         ft.Row(
                             controls = [
-                                ft.TextField(value=user['nr_tel']),
+                                ft.TextField(value=user['numer_telefonu']),
                                 ft.Image(src = "src/assets/edit.png")
                             ]
                         ),
@@ -333,3 +334,4 @@ def delete_account(page, user_id, role):
     cur.execute(f"DELETE FROM {tabela} WHERE {kolumna} = %s;", (str(user_id),))
     conn.commit()
     conn.close()
+    lg.run_login()
