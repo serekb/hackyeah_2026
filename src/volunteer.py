@@ -4,6 +4,8 @@ import login as lg
 
 def view_accepted_needs(page: ft.Page, user_id, menu_return):
     page.clean()
+    page.scroll = "auto"
+    page.bgcolor = "#e8f0f6"
     
     page.appbar = ft.AppBar(
         leading=ft.Container(
@@ -16,100 +18,125 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
     
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id_potrzeba FROM PRZYPISANIE WHERE id_wolontariusza = %s;", (str(user_id),))
-    needs = cur.fetchall()
     
-    need_categories = []
-    need_ids = [n['id_potrzeba'] for n in needs]
-    needy_ids = []
-    needy_numbers = []
-    needy_names = []
-    needy_surnames = []
+    cur.execute("""
+        SELECT 
+            p.id_potrzeba, 
+            p.nazwa_potrzeba, 
+            p.opis,
+            po.imie, 
+            po.nazwisko, 
+            po.numer_telefonu,
+            pr.potwierdzenie_wolontariusza
+        FROM PRZYPISANIE pr
+        JOIN POTRZEBA p ON pr.id_potrzeba = p.id_potrzeba
+        JOIN POTRZEBUJACY po ON pr.id_potrzebujacego = po.id_potrzebujacego
+        WHERE pr.id_wolontariusza = %s AND pr.status != 'zrealizowane';
+    """, (str(user_id),))
+    needs_data = cur.fetchall()
 
-    for need_id in need_ids:
-        cur.execute("SELECT * FROM POTRZEBA WHERE id_potrzeba = %s;", (str(need_id),))
-        n = cur.fetchone()
-        need_categories.append(n['nazwa_potrzeba'])
-        needy_ids.append(n['id_potrzebujacego'])
+    def confirm_need(e, need_id):
+        conf_conn = db.get_db_connection()
+        conf_cur = conf_conn.cursor()
+        try:
+            conf_cur.execute("UPDATE PRZYPISANIE SET potwierdzenie_wolontariusza = TRUE WHERE id_potrzeba = %s", (need_id,))
+            
+            conf_cur.execute("SELECT potwierdzenie_potrzebujacego, potwierdzenie_wolontariusza, id_wolontariusza FROM PRZYPISANIE WHERE id_potrzeba = %s", (need_id,))
+            res = conf_cur.fetchone()
+            if res['potwierdzenie_potrzebujacego'] and res['potwierdzenie_wolontariusza']:
+                conf_cur.execute("UPDATE PRZYPISANIE SET status = 'zrealizowane' WHERE id_potrzeba = %s", (need_id,))
+                conf_cur.execute("UPDATE WOLONTARIUSZE SET pkt = COALESCE(pkt, 0) + 1 WHERE id_wolontariusza = %s", (res['id_wolontariusza'],))
+                
+            conf_conn.commit()
+            snack = ft.SnackBar(ft.Text("Zatwierdzono realizację!", size=16), bgcolor=ft.Colors.GREEN)
+            page.overlay.append(snack)
+            snack.open = True
+            page.update()
+            view_accepted_needs(page, user_id, menu_return)
+        except Exception as err:
+            snack = ft.SnackBar(ft.Text(f"Błąd: {err}", size=16), bgcolor=ft.Colors.RED)
+            page.overlay.append(snack)
+            snack.open = True
+            page.update()
+        finally:
+            conf_cur.close()
+            conf_conn.close()
 
-    for n_id in needy_ids:
-        cur.execute("SELECT numer_telefonu, imie, nazwisko FROM POTRZEBUJACY WHERE id_potrzebujacego = %s;", (str(n_id),))
-        needy = cur.fetchone()
-        needy_numbers.append(needy['numer_telefonu'])
-        needy_names.append(needy['imie'])
-        needy_surnames.append(needy['nazwisko'])
-
-    cur.execute("SELECT numer_telefonu FROM WOLONTARIUSZE WHERE id_wolontariusza = %s;", (str(user_id),))
-    vol = cur.fetchone()
-    volunteer_number = vol['numer_telefonu'] if vol else ""
-
-    needs_data = list(zip(need_categories, needy_numbers, needy_names, needy_surnames))
-
-    page.clean()
-
-    # Generujemy listę kafelków dla każdej potrzeby
     cards = []
-    for item in needs_data:
-        cat_name, needy_phone, first_name, last_name = item
+    for need in needs_data:
+        controls_list = [
+            ft.Text(need['nazwa_potrzeba'], size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+        ]
+        if need.get('opis'):
+            controls_list.append(ft.Text(need['opis'], size=15, color="#b3ffffff", italic=True))
+            
+        controls_list.extend([
+            ft.Divider(color=ft.Colors.WHITE),
+            ft.Column(
+                controls=[
+                    ft.Text("POTRZEBUJĄCY", size=14, color=ft.Colors.WHITE),
+                    ft.Text(f"{need['imie']} {need['nazwisko']}", size=15, color=ft.Colors.WHITE),
+                ],
+                spacing=2,
+            ),
+            ft.Divider(color=ft.Colors.WHITE),
+            ft.Column(
+                controls=[
+                    ft.Text("NUMER TELEFONU", size=14, color=ft.Colors.WHITE),
+                    ft.Text(need['numer_telefonu'], size=15, color=ft.Colors.WHITE),
+                ],
+                spacing=2,
+            ),
+        ])
+        
+        is_confirmed = need.get('potwierdzenie_wolontariusza', False)
+        icon_color = ft.Colors.GREEN if is_confirmed else None
+        
+        icon_widget = ft.Container(
+            content=ft.Image(
+                src="src/assets/check.png",
+                width=40,
+                height=40,
+                fit=ft.BoxFit.CONTAIN,
+                color=icon_color
+            ),
+            on_click=None if is_confirmed else lambda e, nid=need['id_potrzeba']: confirm_need(e, nid)
+        )
+
         cards.append(
             ft.Container(
                 bgcolor="#8b0333",
-                border_radius=10,
+                border_radius=8,
                 padding=15,
-                content=ft.Row(  # Tutaj pojedyncza kontrolka, bez kwadratowych nawiasów!
+                content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
-                        ft.Column(
-                            controls=[
-                                ft.Text(cat_name, size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                ft.Divider(color=ft.Colors.WHITE),
-                                ft.Column(
-                                    controls=[
-                                        ft.Text("KOMU POMAGAM?", size=14, color=ft.Colors.WHITE),
-                                        ft.Text(f"{first_name} {last_name}", size=16, color=ft.Colors.WHITE),
-                                    ],
-                                    spacing=2,
-                                ),
-                                ft.Divider(color=ft.Colors.WHITE),
-                                ft.Column(
-                                    controls=[
-                                        ft.Text("NUMER TELEFONU POTRZEBUJĄCEGO", size=14, color=ft.Colors.WHITE),
-                                        ft.Text(needy_phone, size=16, color=ft.Colors.WHITE),
-                                    ],
-                                    spacing=2,
-                                ),
-                                ft.Divider(color=ft.Colors.WHITE),
-                                ft.Column(
-                                    controls=[
-                                        ft.Text("UWAGI", size=14, color=ft.Colors.WHITE),
-                                        ft.TextField("W TRAKCIE REALIZACJI", color=ft.Colors.WHITE),
-                                    ],
-                                    spacing=2,
-                                ),
-                            ],
-                            expand=True,
-                        ),
-                        ft.Image(
-                            src="src/assets/check.png",
-                            width=40,
-                            height=40,
-                            fit=ft.BoxFit.CONTAIN,
-                        ),
+                        ft.Column(controls=controls_list, expand=True),
+                        icon_widget,
                     ],
                 ),
             )
         )
 
-    view = ft.Column(
-        scroll=ft.ScrollMode.AUTO, 
+    content = ft.Column(
+        scroll=ft.ScrollMode.AUTO,
         expand=True,
         controls=[
             ft.Text("PRZYJĘTE POTRZEBY", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
-            *cards, 
+            ft.Text("W TRAKCIE REALIZACJI", size=16, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_800),
+            *cards
         ],
+        alignment=ft.MainAxisAlignment.START,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER
     )
 
-    page.add(view)
+    page.add(
+        ft.Container(
+            width=410,
+            content=content,
+            alignment=ft.Alignment.CENTER
+        )
+    )
     cur.close()
     conn.close()
 
@@ -127,11 +154,40 @@ def new_needs(page, user_id, menu_return):
     
     conn = db.get_db_connection()
     cur = conn.cursor()
+    
+    # We select needs that are not assigned to ANY volunteer, so we don't try to accept an already taken need
+    # (Optional enhancement, but let's stick to their original logic for safety, just fetching what they had)
     cur.execute("SELECT * FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s);", (str(user_id),))
     needs = cur.fetchall()
 
     cur.execute("SELECT imie, nazwisko, id_potrzebujacego from potrzebujacy where id_potrzebujacego IN (SELECT id_potrzebujacego FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s));", (str(user_id),))
     needy_infos = cur.fetchall()
+    
+    def accept_need(e, need_id, needy_id):
+        acc_conn = db.get_db_connection()
+        acc_cur = acc_conn.cursor()
+        try:
+            acc_cur.execute(
+                "INSERT INTO PRZYPISANIE (id_potrzeba, id_potrzebujacego, id_wolontariusza, status) VALUES (%s, %s, %s, %s)",
+                (need_id, needy_id, user_id, 'w trakcie')
+            )
+            acc_conn.commit()
+            snack = ft.SnackBar(ft.Text("Potrzeba została pomyślnie przyjęta!", size=16), bgcolor=ft.Colors.GREEN)
+            page.overlay.append(snack)
+            snack.open = True
+            page.update()
+            
+            # Odswiezamy widok
+            new_needs(page, user_id, menu_return)
+        except Exception as err:
+            snack = ft.SnackBar(ft.Text(f"Błąd: {err}", size=16), bgcolor=ft.Colors.RED)
+            page.overlay.append(snack)
+            snack.open = True
+            page.update()
+        finally:
+            acc_cur.close()
+            acc_conn.close()
+
     content = ft.Column(
         scroll=ft.ScrollMode.AUTO,
         expand = True,
@@ -146,7 +202,7 @@ def new_needs(page, user_id, menu_return):
                                 ft.TextField(label="10km", width=100)
                             ]
                         ),
-                        ft.FilledButton("SZUKAJ", on_click=lambda e: filter_needs(), style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+                        ft.FilledButton("SZUKAJ", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
                     ]
                 ),
                 border=ft.Border.all(3, ft.Colors.BLACK),
@@ -166,16 +222,19 @@ def new_needs(page, user_id, menu_return):
                                     ft.Divider(color=ft.Colors.WHITE),
                                     ft.Text(need['nazwa_potrzeba'], size=16, color=ft.Colors.WHITE),
                                     ft.Divider(color=ft.Colors.WHITE),
-                                    ft.Text(need['opis'], size=14, color=ft.Colors.WHITE),
+                                    ft.Text(need['opis'] if need.get('opis') else '', size=14, color=ft.Colors.WHITE),
                                 ],
                                 expand=True,
                             ),
-                            ft.Image(
-                                src="src/assets/right_arrow.png",
-                                width=40,
-                                height=40,
-                                fit=ft.BoxFit.CONTAIN,
-                            ),
+                            ft.Container(
+                                content=ft.Image(
+                                    src="src/assets/right_arrow.png",
+                                    width=40,
+                                    height=40,
+                                    fit=ft.BoxFit.CONTAIN,
+                                ),
+                                on_click=lambda e, nid=need['id_potrzeba'], npot=need['id_potrzebujacego']: accept_need(e, nid, npot)
+                            )
                         ],
                     ),
                 ) for need in needs for needy_info in needy_infos if need['id_potrzebujacego'] == needy_info['id_potrzebujacego']

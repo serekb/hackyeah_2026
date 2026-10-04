@@ -219,11 +219,12 @@ def view_need_list(page: ft.Page, user_id, menu_return):
             p.opis,
             w.imie, 
             w.nazwisko, 
-            w.numer_telefonu 
+            w.numer_telefonu,
+            pr.potwierdzenie_potrzebujacego
         FROM POTRZEBA p
         JOIN PRZYPISANIE pr ON p.id_potrzeba = pr.id_potrzeba
         JOIN WOLONTARIUSZE w ON pr.id_wolontariusza = w.id_wolontariusza
-        WHERE p.id_potrzebujacego = %s;
+        WHERE p.id_potrzebujacego = %s AND pr.status != 'zrealizowane';
     """, (str(user_id),))
     active_needs = cur.fetchall()
 
@@ -237,6 +238,34 @@ def view_need_list(page: ft.Page, user_id, menu_return):
     pending_needs = cur.fetchall()
 
     # Budujemy kafelki aktywnych potrzeb
+    def confirm_need(e, need_id):
+        conf_conn = db.get_db_connection()
+        conf_cur = conf_conn.cursor()
+        try:
+            conf_cur.execute("UPDATE PRZYPISANIE SET potwierdzenie_potrzebujacego = TRUE WHERE id_potrzeba = %s", (need_id,))
+            
+            # Sprawdzenie czy obie strony potwierdzily
+            conf_cur.execute("SELECT potwierdzenie_potrzebujacego, potwierdzenie_wolontariusza, id_wolontariusza FROM PRZYPISANIE WHERE id_potrzeba = %s", (need_id,))
+            res = conf_cur.fetchone()
+            if res['potwierdzenie_potrzebujacego'] and res['potwierdzenie_wolontariusza']:
+                conf_cur.execute("UPDATE PRZYPISANIE SET status = 'zrealizowane' WHERE id_potrzeba = %s", (need_id,))
+                conf_cur.execute("UPDATE WOLONTARIUSZE SET pkt = COALESCE(pkt, 0) + 1 WHERE id_wolontariusza = %s", (res['id_wolontariusza'],))
+                
+            conf_conn.commit()
+            snack = ft.SnackBar(ft.Text("Zatwierdzono realizację!", size=16), bgcolor=ft.Colors.GREEN)
+            page.overlay.append(snack)
+            snack.open = True
+            page.update()
+            view_need_list(page, user_id, menu_return)
+        except Exception as err:
+            snack = ft.SnackBar(ft.Text(f"Błąd: {err}", size=16), bgcolor=ft.Colors.RED)
+            page.overlay.append(snack)
+            snack.open = True
+            page.update()
+        finally:
+            conf_cur.close()
+            conf_conn.close()
+
     active_cards = []
     for need in active_needs:
         controls_list = [
@@ -264,6 +293,21 @@ def view_need_list(page: ft.Page, user_id, menu_return):
             ),
         ])
         
+        # Jesli juz kliknal, pokazujemy ze oczekuje na wolontariusza lub po prostu na szaro
+        is_confirmed = need.get('potwierdzenie_potrzebujacego', False)
+        
+        icon_color = ft.Colors.GREEN if is_confirmed else None
+        icon_widget = ft.Container(
+            content=ft.Image(
+                src="src/assets/check.png",
+                width=40,
+                height=40,
+                fit=ft.BoxFit.CONTAIN,
+                color=icon_color
+            ),
+            on_click=None if is_confirmed else lambda e, nid=need['id_potrzeba']: confirm_need(e, nid)
+        )
+        
         active_cards.append(
             ft.Container(
                 bgcolor="#8b0333",
@@ -273,7 +317,7 @@ def view_need_list(page: ft.Page, user_id, menu_return):
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
                         ft.Column(controls=controls_list, expand=True),
-                        ft.Image(src="src/assets/check.png", width=40, height=40, fit=ft.BoxFit.CONTAIN),
+                        icon_widget,
                     ],
                 ),
             )
