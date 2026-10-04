@@ -661,17 +661,14 @@ def save_data_changes(page, user_id, address, number, org_field):
     try:
         conn = db.get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE WOLONTARIUSZE SET numer_telefonu = %s, adres_wolontariusza = %s, organizacja = %s WHERE id_wolontariusza = %s;", (str(number), str(address), str(org_field), str(user_id),))
         
-        # Aktualizacja hasla_wolontariuszy (baza logowania) - trzeba znalezc stary numer
-        cur.execute("SELECT nr_tel FROM wolontariusze WHERE id_wolontariusza = %s;", (str(user_id),))
-        old_nr = cur.fetchone()['nr_tel'] if 'nr_tel' in [d[0] for d in cur.description] else None
-        if old_nr:
-            cur.execute("UPDATE hasla_wolontariuszy SET nr_tel = %s WHERE nr_tel = %s;", (str(number), str(old_nr)))
-            
+        # Only update editable fields using dictionary style parameterization
+        cur.execute(
+            "UPDATE WOLONTARIUSZE SET adres_wolontariusza = %(address)s, organizacja = %(org)s WHERE id_wolontariusza = %(user_id)s;", 
+            {"address": str(address), "org": str(org_field), "user_id": str(user_id)}
+        )
+        
         conn.commit()
-        cur.close()
-        conn.close()
         snack = ft.SnackBar(ft.Text("Zapisano zmiany!", size=16), bgcolor=ft.Colors.GREEN)
         page.overlay.append(snack)
         snack.open = True
@@ -681,6 +678,9 @@ def save_data_changes(page, user_id, address, number, org_field):
         page.overlay.append(snack)
         snack.open = True
         page.update()
+    finally:
+        if 'cur' in locals(): cur.close()
+        if 'conn' in locals(): conn.close()
 
 def change_password(page: ft.Page, user_id, menu_return):
     page.clean()
