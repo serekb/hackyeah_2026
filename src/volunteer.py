@@ -142,6 +142,10 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
 
 def new_needs(page, user_id, menu_return):
     page.clean()
+    page.bgcolor = "#e8f0f6"
+    page.scroll = "auto"
+    page.vertical_alignment = ft.MainAxisAlignment.START
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     
     page.appbar = ft.AppBar(
         leading=ft.Container(
@@ -155,8 +159,6 @@ def new_needs(page, user_id, menu_return):
     conn = db.get_db_connection()
     cur = conn.cursor()
     
-    # We select needs that are not assigned to ANY volunteer, so we don't try to accept an already taken need
-    # (Optional enhancement, but let's stick to their original logic for safety, just fetching what they had)
     cur.execute("SELECT * FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s);", (str(user_id),))
     needs = cur.fetchall()
 
@@ -177,7 +179,6 @@ def new_needs(page, user_id, menu_return):
             snack.open = True
             page.update()
             
-            # Odswiezamy widok
             new_needs(page, user_id, menu_return)
         except Exception as err:
             snack = ft.SnackBar(ft.Text(f"Błąd: {err}", size=16), bgcolor=ft.Colors.RED)
@@ -188,60 +189,99 @@ def new_needs(page, user_id, menu_return):
             acc_cur.close()
             acc_conn.close()
 
+    filter_card = ft.Container(
+        width=410,
+        bgcolor=ft.Colors.WHITE,
+        border=ft.Border.all(4, "#132434"),
+        border_radius=20,
+        padding=20,
+        content=ft.Column(
+            controls=[
+                ft.Text("FILTRUJ PO LOKALIZACJI", size=20, weight=ft.FontWeight.BOLD, color="#132434"),
+                ft.Container(height=5),
+                ft.Row(
+                    controls=[
+                        ft.TextField(
+                            hint_text="Adres (np. miasto)", 
+                            bgcolor=ft.Colors.WHITE, border_color="#132434", border_radius=10, 
+                            expand=True, text_style=ft.TextStyle(size=16, color=ft.Colors.BLACK, weight=ft.FontWeight.BOLD)
+                        ),
+                        ft.TextField(
+                            value="+ 1 km", 
+                            bgcolor=ft.Colors.WHITE, border_color="#132434", border_radius=10, 
+                            width=100, text_style=ft.TextStyle(size=16, color=ft.Colors.BLACK, weight=ft.FontWeight.BOLD)
+                        )
+                    ],
+                    spacing=10
+                ),
+                ft.Container(height=5),
+                ft.FilledButton(
+                    content=ft.Text("SZUKAJ", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                    style=ft.ButtonStyle(bgcolor="#8b0333", shape=ft.RoundedRectangleBorder(radius=10)), 
+                    width=370, height=55
+                ),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        )
+    )
+
+    cards = []
+    for need in needs:
+        for needy_info in needy_infos:
+            if need['id_potrzebujacego'] == needy_info['id_potrzebujacego']:
+                cards.append(
+                    ft.Container(
+                        bgcolor="#132434",
+                        border_radius=20,
+                        padding=20,
+                        width=410,
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Column(
+                                    controls=[
+                                        ft.Text(needy_info['imie'] + " " + needy_info['nazwisko'], size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                        ft.Divider(color=ft.Colors.WHITE),
+                                        ft.Text(need['nazwa_potrzeba'], size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                        ft.Text(need['opis'] if need.get('opis') else '', size=15, color="#b3ffffff", italic=True) if need.get('opis') else ft.Container(),
+                                    ],
+                                    expand=True,
+                                ),
+                                ft.Container(
+                                    content=ft.Image(
+                                        src="src/assets/right_arrow.png",
+                                        width=50,
+                                        height=50,
+                                        fit=ft.BoxFit.CONTAIN,
+                                    ),
+                                    on_click=lambda e, nid=need['id_potrzeba'], npot=need['id_potrzebujacego']: accept_need(e, nid, npot)
+                                )
+                            ],
+                        ),
+                    )
+                )
+
     content = ft.Column(
         scroll=ft.ScrollMode.AUTO,
-        expand = True,
+        expand=True,
         controls=[
-            ft.Container(
-                content = ft.Column(
-                    controls = [
-                        ft.Text("Lokalizacja", size=20, color=ft.Colors.BLACK),
-                        ft.Row(
-                            controls = [
-                                ft.TextField(label="Adres", width=100),
-                                ft.TextField(label="10km", width=100)
-                            ]
-                        ),
-                        ft.FilledButton("SZUKAJ", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-                    ]
-                ),
-                border=ft.Border.all(3, ft.Colors.BLACK),
-                border_radius=10,
-            ),
-            *[
-                ft.Container(
-                    bgcolor="#132434",
-                    border_radius=10,
-                    padding=15,
-                    content=ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        controls=[
-                            ft.Column(
-                                controls=[
-                                    ft.Text(needy_info['imie'] + " " + needy_info['nazwisko'], size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                    ft.Divider(color=ft.Colors.WHITE),
-                                    ft.Text(need['nazwa_potrzeba'], size=16, color=ft.Colors.WHITE),
-                                    ft.Divider(color=ft.Colors.WHITE),
-                                    ft.Text(need['opis'] if need.get('opis') else '', size=14, color=ft.Colors.WHITE),
-                                ],
-                                expand=True,
-                            ),
-                            ft.Container(
-                                content=ft.Image(
-                                    src="src/assets/right_arrow.png",
-                                    width=40,
-                                    height=40,
-                                    fit=ft.BoxFit.CONTAIN,
-                                ),
-                                on_click=lambda e, nid=need['id_potrzeba'], npot=need['id_potrzebujacego']: accept_need(e, nid, npot)
-                            )
-                        ],
-                    ),
-                ) for need in needs for needy_info in needy_infos if need['id_potrzebujacego'] == needy_info['id_potrzebujacego']
-            ]
-        ]
+            ft.Text("NOWE POTRZEBY", size=24, weight=ft.FontWeight.BOLD, color="#132434"),
+            ft.Container(height=5),
+            filter_card,
+            ft.Container(height=10),
+            *cards
+        ],
+        alignment=ft.MainAxisAlignment.START,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER
     )
-    page.add(content)
+
+    page.add(
+        ft.Container(
+            width=450,
+            content=content,
+            alignment=ft.Alignment.CENTER
+        )
+    )
     cur.close()
     conn.close()
 
@@ -288,7 +328,7 @@ def select_volunteer(page: ft.Page, menu_return, user_id):
             ),
             ft.FilledButton(
                 content=ft.Text("POSTĘPY", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                on_click=lambda e: accomplishments(page, user_id), 
+                on_click=lambda e: accomplishments(page, user_id, menu_return), 
                 style=ft.ButtonStyle(
                     bgcolor="#132434",
                     shape=ft.RoundedRectangleBorder(radius=20)
@@ -320,15 +360,29 @@ def select_volunteer(page: ft.Page, menu_return, user_id):
         )
     )
 
-def accomplishments(page: ft.Page, user_id):
+def accomplishments(page: ft.Page, user_id, menu_return):
     page.clean()
+    page.bgcolor = "#e8f0f6"
+    page.scroll = "auto"
+    page.vertical_alignment = ft.MainAxisAlignment.START
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton(content=ft.Text("WRÓĆ", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)), on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
+            padding=10  
+        ),
+        leading_width=200,
+        bgcolor=ft.Colors.TRANSPARENT
+    )
+
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT PKT FROM WOLONTARIUSZE WHERE id_wolontariusza = %s;", (str(user_id),))
-    points = cur.fetchall()
-    print(points)
-    points = points[0]['pkt']
-    print(points)
+    points_data = cur.fetchone()
+    # It might return a RealDictRow or a tuple. If no pkt, treat as 0
+    points = points_data['pkt'] if points_data and points_data.get('pkt') is not None else 0
+    
     if points < 15:
         medal_path = "src/assets/bronze_medal.png"   
     elif points < 50:
@@ -336,17 +390,48 @@ def accomplishments(page: ft.Page, user_id):
     else:
         medal_path = "src/assets/gold_medal.png"
 
-    content = ft.Column(
-            controls = [
-                ft.Image(src = medal_path),
-                ft.Text("Udzielonych pomocy", size = 20, color = ft.Colors.BLACK),
-                ft.Text(f"{points}", size = 20, color = ft.Colors.BLACK),
-                ft.FilledButton("Pobierz certyfikat", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-                ft.FilledButton("Przysługujące zniżki", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ]
+    form_card = ft.Container(
+        width=410,
+        bgcolor=ft.Colors.WHITE,
+        border=ft.Border.all(4, "#132434"),
+        border_radius=20,
+        padding=20,
+        content=ft.Column(
+            controls=[
+                ft.Text("TWOJE POSTĘPY", size=24, weight=ft.FontWeight.BOLD, color="#132434"),
+                ft.Container(height=10),
+                
+                ft.Image(src=medal_path, width=220, height=220, fit=ft.BoxFit.CONTAIN),
+                
+                ft.Container(height=15),
+                ft.Text("UDZIELONYCH POMOCY", size=18, weight=ft.FontWeight.BOLD, color="#132434"),
+                ft.Text(f"{points}", size=50, weight=ft.FontWeight.BOLD, color="#8b0333"),
+                
+                ft.Container(height=20),
+                
+                ft.FilledButton(
+                    content=ft.Text("POBIERZ CERTYFIKAT", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                    style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)),
+                    width=370, height=55
+                ),
+                ft.FilledButton(
+                    content=ft.Text("PRZYSŁUGUJĄCE ZNIŻKI", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                    style=ft.ButtonStyle(bgcolor="#8b0333", shape=ft.RoundedRectangleBorder(radius=10)),
+                    width=370, height=55
+                ),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10
         )
+    )
 
-    page.add(content)
+    page.add(
+        ft.Column(
+            controls=[ft.Container(height=10), form_card, ft.Container(height=30)],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        )
+    )
     cur.close()
     conn.close()
 
