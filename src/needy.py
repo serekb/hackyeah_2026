@@ -24,9 +24,9 @@ def select_needy(page: ft.Page, menu_return, user_id):
         controls = [
             ft.FilledButton("DODAJ POTRZEBĘ", on_click=lambda e: add_need(page, user_id, menu_return), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50),
-            ft.FilledButton("MOJE POTRZEBY", on_click=lambda e: view_need_list(page, user_id),
+            ft.FilledButton("MOJE POTRZEBY", on_click=lambda e: view_need_list(page, user_id, menu_return),
                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("MOJE KONTO", on_click=lambda e: view_profile(page, user_id), 
+            ft.FilledButton("MOJE KONTO", on_click=lambda e: view_profile(page, user_id, menu_return), 
                             style=ft.ButtonStyle(bgcolor="#132434"), width=200, height=50)
         ]
     )
@@ -119,8 +119,17 @@ def add_need(page: ft.Page, user_id, menu_return):
     )
     page.add(content)
 
-def view_need_list(page: ft.Page, user_id):
+def view_need_list(page: ft.Page, user_id, menu_return):
     page.clean()
+    
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_needy(page, menu_return, user_id), width=150, height=50),
+            padding=10  
+        ),
+        leading_width=200
+    )
+    
     conn = db.get_db_connection()
     cur = conn.cursor()
 
@@ -220,8 +229,17 @@ def view_need_list(page: ft.Page, user_id):
 
     page.add(content)
 
-def view_profile(page: ft.Page, user_id):
+def view_profile(page: ft.Page, user_id, menu_return):
     page.clean()
+    
+    page.appbar = ft.AppBar(
+        leading=ft.Container(
+            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_needy(page, menu_return, user_id), width=150, height=50),
+            padding=10  
+        ),
+        leading_width=200
+    )
+    
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
