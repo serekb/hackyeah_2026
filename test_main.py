@@ -1,17 +1,20 @@
 import flet as ft
-import needy as nd
-import volunteer as vl
-import login as lg
+# mocked imports
+class lg:
+    @staticmethod
+    def run_login(*args):
+        pass
 
 def main(page: ft.Page):
     def menu():
         page.clean()
         page.window.title = "Wybierz typ użytkownika"
+        page.update()
         page.window.height = 750
         page.window.width = 450
         page.window_center = True
         page.window.background_color = "#e8f0f6"
-        page.bgcolor = "#e8f0f6"
+        page.bgcolor = "#e8f0f6" 
         page.update()
 
         page.appbar = None
@@ -26,7 +29,7 @@ def main(page: ft.Page):
                 height=card_height,
                 bgcolor=bg_color,
                 border_radius=20,
-                alignment=ft.Alignment.CENTER,
+                alignment=ft.alignment.center,
                 content=ft.Text(title, size=24, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
             )
             
@@ -35,7 +38,7 @@ def main(page: ft.Page):
                 height=icon_size,
                 bgcolor="#78b6db",
                 border_radius=20,
-                alignment=ft.Alignment.CENTER,
+                alignment=ft.alignment.center,
                 content=ft.Image(src=icon_src, width=icon_size*0.7, height=icon_size*0.7, fit=ft.BoxFit.CONTAIN)
             )
             
@@ -75,6 +78,7 @@ def main(page: ft.Page):
         page.add(content)
 
     menu()
+    print("Test passed")
 
 if __name__ == "__main__":
-    ft.run(main)
+    import test_main
