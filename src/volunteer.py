@@ -7,7 +7,7 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
     
     page.appbar = ft.AppBar(
         leading=ft.Container(
-            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
+            content=ft.FilledButton(content=ft.Text("WRÓĆ", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)), on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
             padding=10  
         ),
         leading_width=200,
@@ -118,7 +118,7 @@ def new_needs(page, user_id, menu_return):
     
     page.appbar = ft.AppBar(
         leading=ft.Container(
-            content=ft.FilledButton("WRÓĆ", on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
+            content=ft.FilledButton(content=ft.Text("WRÓĆ", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)), on_click=lambda e: select_volunteer(page, menu_return, user_id), width=150, height=50),
             padding=10  
         ),
         leading_width=200,
@@ -191,7 +191,7 @@ def select_volunteer(page: ft.Page, menu_return, user_id):
 
     page.appbar = ft.AppBar(
         leading=ft.Container(
-            content=ft.FilledButton("WRÓĆ", on_click=lambda e: menu_return(), width=150, height=50),
+            content=ft.FilledButton(content=ft.Text("WRÓĆ", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)), on_click=lambda e: menu_return(), width=150, height=50),
             padding=10  
         ),
         leading_width=200,
