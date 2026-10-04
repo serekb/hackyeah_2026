@@ -269,6 +269,34 @@ def select_volunteer(page: ft.Page, menu_return, user_id):
         content
     )
 
+def accomplishments(page: ft.Page, user_id):
+    page.clean()
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT PKT FROM WOLONTARIUSZE WHERE id_wolontariusza = %s;", (str(user_id),))
+    points = cur.fetchall()
+    print(points)
+    points = points[0]['pkt']
+    print(points)
+    if points < 15:
+        medal_path = "src/assets/bronze_medal.png"   
+    elif points < 50:
+        medal_path = "src/assets/silver_medal.png"
+    else:
+        medal_path = "src/assets/gold_medal.png"
+
+    content = ft.Column(
+            controls = [
+                ft.Image(src = medal_path),
+                ft.Text("Udzielonych pomocy", size = 20, color = ft.Colors.BLACK),
+                ft.Text(f"{points}", size = 20, color = ft.Colors.BLACK),
+                ft.FilledButton("Pobierz certyfikat", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+                ft.FilledButton("Przysługujące zniżki", style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+            ]
+        )
+
+    page.add(content)
+
 def view_profile(page: ft.Page, user_id):
     page.clean()
     conn = db.get_db_connection()
@@ -311,7 +339,7 @@ def view_profile(page: ft.Page, user_id):
             ),
             ft.FilledButton("ZMIEŃ HASŁO", on_click=lambda e: change_password(page, user['id_wolontariusza']),
                              style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_wolontariusza']),
+            ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_wolontariusza'], "wolontariusz"),
                                          style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),         
         ]
     )
@@ -356,8 +384,11 @@ def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: s
     conn.close()
     page.add(ft.Text("Hasło zostało zmienione", size=15, color=ft.Colors.GREEN))
 
-def delete_account(page, user_id):
+def delete_account(page, user_id, role):
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT haslo FROM hasla WHERE id_wolontariusza = %s;", (str(user_id),)) #usuwanie uzytkownika o id = user_id
-    user = cur.fetchone()
+    tabela = 'wolontariusze' if role == 'wolontariusz' else 'potrzebujacy'
+    kolumna = 'id_wolontariusza' if role == 'wolontariusz' else 'id_potrzebujacego'
+    cur.execute(f"DELETE FROM {tabela} WHERE {kolumna} = %s;", (str(user_id),))
+    conn.commit()
+    conn.close()

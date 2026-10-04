@@ -1,5 +1,6 @@
 import flet as ft
 import database as db
+from geopy.geocoders import Nominatim
 
 def login_successful(page, menu_return, user_type, user_id):
     if user_type == "Potrzebujący":
@@ -53,7 +54,8 @@ def register_user(page: ft.Page, menu_return, user_type):
     password_field = create_textfield(hint="min. 8 znaków", is_password=True)
     name_field = create_textfield(hint="np. Kasia")
     surname_field = create_textfield(hint="np. Wesoła")
-    address_field = create_textfield(hint="np. ul. Leśna 56")
+    address_field = create_textfield(hint="np. Leśna 56 m.5")
+    org_field=create_textfield(hint="np. Koło Wolontariuszy")
 
     def create_input_col(label_text, field_obj):
         return ft.Column(
@@ -65,14 +67,43 @@ def register_user(page: ft.Page, menu_return, user_type):
         )
 
     def handle_registration(e):
-        print("=== DANE Z FORMULARZA ===")
-        print(f"Telefon: {phone_field.value}")
-        print(f"Hasło: {password_field.value}")
-        print(f"Imię: {name_field.value}")
-        print(f"Nazwisko: {surname_field.value}")
-        print(f"Adres: {address_field.value}")
-        print("Zapis do bazy tymczasowo wyłączony.")
-        run_login(page, menu_return, user_type)
+        
+        
+        conn = db.get_db_connection()
+        cur = conn.cursor()
+        try:
+            geolocator = Nominatim(user_agent="my_app")
+            full_address=f"Kraków,{address_field.value}"
+            location = geolocator.geocode(full_address)
+
+            if location:
+                lat = location.latitude
+                lon = location.longitude
+                print(f"Znaleziono współrzędne: {lat}, {lon}")
+            else:
+                print("Nie znaleziono adresu. Sprawdź, czy nazwa ulicy jest poprawna.")
+                
+            if user_type == "Wolontariusz":
+                    cur.execute("INSERT INTO wolontariusze (imie, nazwisko,pkt,numer_telefonu,adres_wolontariusza,organizacja,dlugosc_geograficzna, szerokosc_geograficzna) VALUES (%s, %s, %s, %s,%s, %s, %s, %s)", (str(name_field.value),str(surname_field.value), 0,str(phone_field.value),str(address_field.value), str(org_field.value), str(lon), str(lat)))
+                    cur.execute("INSERT INTO hasla_wolontariuszy (nr_tel,haslo) VALUES (%s, %s)", (str(phone_field.value),str(password_field.value)))
+
+            elif user_type == "Potrzebujący":
+                    cur.execute("INSERT INTO potrzebujacy (imie, nazwisko,numer_telefonu,adres_potrzebujacego,dlugosc_geograficzna, szerokosc_geograficzna) VALUES (%s, %s, %s, %s,%s, %s)", (str(name_field.value),str(surname_field.value),str(phone_field.value),str(address_field.value), str(lon), str(lat)))
+                    cur.execute("INSERT INTO hasla_potrzebujacych (nr_tel,haslo) VALUES (%s, %s)", (str(phone_field.value),str(password_field.value)))
+            else:
+                    pass
+            
+            cur.connection.commit()
+
+        except Exception as e:
+            print("ERROR OCCURED:", str(e) )
+        finally:
+            cur.close()
+            conn.close()
+            run_login(page, menu_return, user_type)
+            
+    
+        
 
     form_content = ft.Container(
         content=ft.Column(
@@ -116,7 +147,7 @@ def register_user(page: ft.Page, menu_return, user_type):
             
             ft.FilledButton(
                 "ZAREJESTRUJ SIĘ", 
-                on_click=handle_registration,
+                on_click= handle_registration,
                 style=ft.ButtonStyle(
                     bgcolor=text_color,
                     shape=ft.RoundedRectangleBorder(radius=10)
