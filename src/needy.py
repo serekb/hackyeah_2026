@@ -274,6 +274,8 @@ def view_profile(page: ft.Page, user_id, menu_return):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def save_data_changes(user_id, address, number):
     print("dziala")
@@ -308,6 +310,8 @@ def change_password(page: ft.Page, user_id):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: str, confirm_password: str):
     conn = db.get_db_connection()
@@ -323,6 +327,8 @@ def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: s
     cur.execute("UPDATE hasla SET haslo = %s WHERE id_potrzebujacego = %s;", (new_password, str(user_id)))
     conn.commit()
     page.add(ft.Text("Hasło zostało zmienione", size=15, color=ft.Colors.GREEN))
+    cur.close()
+    conn.close()
 
 def delete_account(page, user_id, role):
     conn = db.get_db_connection()

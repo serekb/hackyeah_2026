@@ -110,6 +110,8 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
     )
 
     page.add(view)
+    cur.close()
+    conn.close()
 
 def new_needs(page, user_id, menu_return):
     page.clean()
@@ -181,6 +183,8 @@ def new_needs(page, user_id, menu_return):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def select_volunteer(page: ft.Page, menu_return, user_id):
     page.clean()
@@ -238,6 +242,8 @@ def accomplishments(page: ft.Page, user_id):
         )
 
     page.add(content)
+    cur.close()
+    conn.close()
 
 def view_profile(page: ft.Page, user_id):
     page.clean()
@@ -292,6 +298,8 @@ def view_profile(page: ft.Page, user_id):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def save_data_changes(user_id, address, number, org_field):
     print("dziala")
@@ -326,6 +334,8 @@ def change_password(page: ft.Page, user_id):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: str, confirm_password: str):
     conn = db.get_db_connection()
