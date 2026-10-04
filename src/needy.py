@@ -359,49 +359,11 @@ def view_profile(page: ft.Page, user_id, menu_return):
         bgcolor=ft.Colors.TRANSPARENT
     )
     
+    import database as db
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
     user = cur.fetchone()
-    address_field = ft.TextField(value=user['adres_potrzebujacego'])
-    number_field = ft.TextField(value=user['numer_telefonu'])
-    content = ft.Column(
-        controls = [
-            ft.Text("MOJE KONTO", size=20, color=ft.Colors.BLACK),
-            ft.Container(
-                content = ft.Column(
-                    controls = [
-                        ft.Text(f"Imię", size=15, color=ft.Colors.BLACK),
-                        ft.TextField(value=user['imie'], read_only=True),
-                        ft.Text(f"Nazwisko", size=15, color=ft.Colors.BLACK),
-                        ft.TextField(value=user['nazwisko'], read_only=True),
-                        ft.Text(f"Adres", size=15, color=ft.Colors.BLACK),
-                        address_field,
-                        ft.Text(f"Numer telefonu", size=15, color=ft.Colors.BLACK),
-                        number_field
-                    ]
-                )
-            ),
-            ft.FilledButton("ZAPISZ ZMIANY", on_click =lambda e: save_data_changes(user_id, address_field.value, number_field.value),
-                style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("ZMIEŃ HASŁO", on_click=lambda e: change_password(page, user['id_potrzebujacego']),
-                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
-            ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_potrzebujacego'], "potrzebujacy"),
-                                         style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),         
-        ]
-    )
-    page.add(content)
-    cur.close()
-    conn.close()
-
-def save_data_changes(user_id, address, number):
-    print("dziala")
-    conn = db.get_db_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE potrzebujacy SET numer_telefonu = %s, adres_potrzebujacego = %s WHERE id_potrzebujacego = %s;", (str(number), str(address), str(user_id),))
-    conn.commit()
-    print("Zaktualizowano wierszy:", cur.rowcount)
-    cur.connection.commit()
     cur.close()
     conn.close()
 
@@ -418,7 +380,7 @@ def save_data_changes(user_id, address, number):
         )
 
     address_field = create_textfield(value=user['adres_potrzebujacego'])
-    number_field = create_textfield(value=user['numer_telefonu'])
+    number_field = create_textfield(value=user['numer_telefonu'], read_only=True)
     
     def create_input_col(label_text, field_obj):
         return ft.Column(
@@ -440,13 +402,8 @@ def save_data_changes(user_id, address, number):
                 ft.Text("MOJE KONTO", size=24, weight=ft.FontWeight.BOLD, color="#132434"),
                 ft.Container(height=10),
                 
-                ft.Row(
-                    controls=[
-                        ft.Container(content=create_input_col("IMIĘ", create_textfield(value=user['imie'], read_only=True)), expand=True),
-                        ft.Container(content=create_input_col("NAZWISKO", create_textfield(value=user['nazwisko'], read_only=True)), expand=True)
-                    ],
-                    spacing=10
-                ),
+                create_input_col("IMIĘ", create_textfield(value=user['imie'], read_only=True)),
+                create_input_col("NAZWISKO", create_textfield(value=user['nazwisko'], read_only=True)),
                 
                 create_input_col("ADRES", address_field),
                 create_input_col("NUMER TELEFONU", number_field),
@@ -491,7 +448,7 @@ def save_data_changes(page, user_id, address, number):
         conn = db.get_db_connection()
         cur = conn.cursor()
         cur.execute("UPDATE potrzebujacy SET numer_telefonu = %s, adres_potrzebujacego = %s WHERE id_potrzebujacego = %s;", (str(number), str(address), str(user_id),))
-        # Aktualizujemy rownież numer w tabeli haseł, bo logowanie polega na numerze telefonu
+        
         cur.execute("SELECT nr_tel FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
         old_nr = cur.fetchone()['nr_tel'] if 'nr_tel' in [d[0] for d in cur.description] else None
         if old_nr:
@@ -538,9 +495,6 @@ def change_password(page: ft.Page, user_id, menu_return):
             text_style=ft.TextStyle(size=16, color=ft.Colors.BLACK, weight=ft.FontWeight.BOLD),
             content_padding=15
         )
-    page.add(content)
-    cur.close()
-    conn.close()
 
     passwordbox_old = create_passfield("Stare hasło")
     passwordbox_new = create_passfield("Nowe hasło")
@@ -593,7 +547,6 @@ def save_password_changes(page: ft.Page, user_id, old_password: str, new_passwor
     import database as db
     conn = db.get_db_connection()
     cur = conn.cursor()
-    # Find user phone number first
     cur.execute("SELECT numer_telefonu FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
     user_rec = cur.fetchone()
     if not user_rec:
@@ -618,17 +571,6 @@ def save_password_changes(page: ft.Page, user_id, old_password: str, new_passwor
         return
         
     cur.execute("UPDATE hasla_potrzebujacych SET haslo = %s WHERE nr_tel = %s;", (new_password, phone))
-    conn.commit()
-    page.add(ft.Text("Hasło zostało zmienione", size=15, color=ft.Colors.GREEN))
-    cur.close()
-    conn.close()
-
-def delete_account(page, user_id, role):
-    conn = db.get_db_connection()
-    cur = conn.cursor()
-    tabela = 'wolontariusze' if role == 'wolontariusz' else 'potrzebujacy'
-    kolumna = 'id_wolontariusza' if role == 'wolontariusz' else 'id_potrzebujacego'
-    cur.execute(f"DELETE FROM {tabela} WHERE {kolumna} = %s;", (str(user_id),))
     conn.commit()
     cur.close()
     conn.close()
@@ -668,6 +610,7 @@ def delete_account(page, user_id, role, menu_return):
         dialog.open = False
         page.update()
 
+    import flet as ft
     dialog = ft.AlertDialog(
         modal=True,
         title=ft.Text("Usuwanie konta", size=22, weight=ft.FontWeight.BOLD),
@@ -682,4 +625,3 @@ def delete_account(page, user_id, role, menu_return):
     page.overlay.append(dialog)
     dialog.open = True
     page.update()
-    lg.run_login()
