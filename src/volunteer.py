@@ -1,4 +1,6 @@
+import math
 import flet as ft
+import psycopg2
 import database as db
 import login as lg
 
@@ -140,12 +142,83 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
     cur.close()
     conn.close()
 
+def filter_needs(user_id, radius_km: str | None):
+    """Return unassigned needs within the requested radius of the volunteer."""
+    if radius_km is None:
+        raise ValueError("Podaj promień w kilometrach, np. 1 albo 2.5.")
+
+    try:
+        radius_km = float(radius_km.strip().replace(",", "."))
+    except ValueError as exc:
+        raise ValueError("Podaj promień w kilometrach, np. 1 albo 2.5.") from exc
+
+    if not math.isfinite(radius_km) or radius_km <= 0:
+        raise ValueError("Promień musi być dodatnią, skończoną liczbą kilometrów.")
+
+    conn = db.get_db_connection()
+    if conn is None:
+        raise ConnectionError("Nie udało się połączyć z bazą danych.")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT szerokosc_geograficzna, dlugosc_geograficzna
+                FROM wolontariusze
+                WHERE id_wolontariusza = %s;
+                """,
+                (str(user_id),),
+            )
+            volunteer = cur.fetchone()
+            if (
+                volunteer is None
+                or volunteer["szerokosc_geograficzna"] is None
+                or volunteer["dlugosc_geograficzna"] is None
+            ):
+                raise ValueError("Wolontariusz nie ma zapisanej lokalizacji.")
+
+            latitude = volunteer["szerokosc_geograficzna"]
+            longitude = volunteer["dlugosc_geograficzna"]
+            cur.execute(
+                """
+                SELECT
+                    p.id_potrzeba,
+                    p.id_potrzebujacego,
+                    p.nazwa_potrzeba,
+                    p.opis,
+                    n.imie,
+                    n.nazwisko
+                FROM potrzeba p
+                JOIN potrzebujacy n
+                  ON n.id_potrzebujacego = p.id_potrzebujacego
+                WHERE n.szerokosc_geograficzna IS NOT NULL
+                  AND n.dlugosc_geograficzna IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM przypisanie a
+                      WHERE a.id_potrzeba = p.id_potrzeba
+                  )
+                  AND 6371.0088 * 2 * ASIN(SQRT(LEAST(1.0,
+                      POWER(SIN(RADIANS(n.szerokosc_geograficzna - %s) / 2), 2)
+                      + COS(RADIANS(%s))
+                      * COS(RADIANS(n.szerokosc_geograficzna))
+                      * POWER(SIN(RADIANS(n.dlugosc_geograficzna - %s) / 2), 2)
+                  ))) <= %s;
+                """,
+                (latitude, latitude, longitude, radius_km),
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
 def new_needs(page, user_id, menu_return):
     page.clean()
     page.bgcolor = "#e8f0f6"
     page.scroll = "auto"
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    radius_field = ft.TextField(label="Kilometry", value="10", width=100)
     
     page.appbar = ft.AppBar(
         leading=ft.Container(
@@ -189,6 +262,92 @@ def new_needs(page, user_id, menu_return):
             acc_cur.close()
             acc_conn.close()
 
+    def need_card(need, needy_info):
+        return ft.Container(
+            bgcolor="#132434",
+            border_radius=20,
+            padding=20,
+            width=410,
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                f"{needy_info['imie']} {needy_info['nazwisko']}",
+                                size=22,
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.WHITE,
+                            ),
+                            ft.Divider(color=ft.Colors.WHITE),
+                            ft.Text(
+                                need["nazwa_potrzeba"],
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.WHITE,
+                            ),
+                            ft.Text(
+                                need.get("opis") or "",
+                                size=15,
+                                color="#b3ffffff",
+                                italic=True,
+                            ),
+                        ],
+                        expand=True,
+                    ),
+                    ft.Container(
+                        content=ft.Image(
+                            src="src/assets/right_arrow.png",
+                            width=50,
+                            height=50,
+                            fit=ft.BoxFit.CONTAIN,
+                        ),
+                        on_click=lambda e, need_id=need["id_potrzeba"],
+                        needy_id=need["id_potrzebujacego"]: accept_need(
+                            e, need_id, needy_id
+                        ),
+                    ),
+                ],
+            ),
+        )
+
+    available_needs_view = ft.Column(
+        spacing=10,
+        controls=[
+            need_card(need, needy_info)
+            for need in needs
+            for needy_info in needy_infos
+            if need["id_potrzebujacego"] == needy_info["id_potrzebujacego"]
+        ],
+    )
+
+    def search_needs(_):
+        available_needs_view.controls.clear()
+        try:
+            matching_needs = filter_needs(user_id, radius_field.value)
+        except (ConnectionError, ValueError) as exc:
+            available_needs_view.controls.append(
+                ft.Text(str(exc), color=ft.Colors.RED)
+            )
+        except psycopg2.Error as exc:
+            print(f"Błąd bazy danych podczas wyszukiwania potrzeb: {exc}")
+            available_needs_view.controls.append(
+                ft.Text(
+                    "Wystąpił błąd podczas wyszukiwania. Spróbuj ponownie.",
+                    color=ft.Colors.RED,
+                )
+            )
+        else:
+            if not matching_needs:
+                available_needs_view.controls.append(
+                    ft.Text("Nie znaleziono potrzeb w podanym promieniu.")
+                )
+            else:
+                available_needs_view.controls.extend(
+                    need_card(need, need) for need in matching_needs
+                )
+        page.update()
+
     filter_card = ft.Container(
         width=410,
         bgcolor=ft.Colors.WHITE,
@@ -201,65 +360,28 @@ def new_needs(page, user_id, menu_return):
                 ft.Container(height=5),
                 ft.Row(
                     controls=[
-                        ft.TextField(
-                            hint_text="Adres (np. miasto)", 
-                            bgcolor=ft.Colors.WHITE, border_color="#132434", border_radius=10, 
-                            expand=True, text_style=ft.TextStyle(size=16, color=ft.Colors.BLACK, weight=ft.FontWeight.BOLD)
+                        ft.Text(
+                            "Odległość od Twojej lokalizacji",
+                            color="#132434",
+                            expand=True,
                         ),
-                        ft.TextField(
-                            value="+ 1 km", 
-                            bgcolor=ft.Colors.WHITE, border_color="#132434", border_radius=10, 
-                            width=100, text_style=ft.TextStyle(size=16, color=ft.Colors.BLACK, weight=ft.FontWeight.BOLD)
-                        )
+                        radius_field,
                     ],
-                    spacing=10
+                    spacing=10,
                 ),
                 ft.Container(height=5),
                 ft.FilledButton(
                     content=ft.Text("SZUKAJ", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                    style=ft.ButtonStyle(bgcolor="#8b0333", shape=ft.RoundedRectangleBorder(radius=10)), 
-                    width=370, height=55
+                    style=ft.ButtonStyle(bgcolor="#8b0333", shape=ft.RoundedRectangleBorder(radius=10)),
+                    width=370,
+                    height=55,
+                    on_click=search_needs,
                 ),
             ],
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER
-        )
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
     )
 
-    cards = []
-    for need in needs:
-        for needy_info in needy_infos:
-            if need['id_potrzebujacego'] == needy_info['id_potrzebujacego']:
-                cards.append(
-                    ft.Container(
-                        bgcolor="#132434",
-                        border_radius=20,
-                        padding=20,
-                        width=410,
-                        content=ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            controls=[
-                                ft.Column(
-                                    controls=[
-                                        ft.Text(needy_info['imie'] + " " + needy_info['nazwisko'], size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                        ft.Divider(color=ft.Colors.WHITE),
-                                        ft.Text(need['nazwa_potrzeba'], size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                        ft.Text(need['opis'] if need.get('opis') else '', size=15, color="#b3ffffff", italic=True) if need.get('opis') else ft.Container(),
-                                    ],
-                                    expand=True,
-                                ),
-                                ft.Container(
-                                    content=ft.Image(
-                                        src="src/assets/right_arrow.png",
-                                        width=50,
-                                        height=50,
-                                        fit=ft.BoxFit.CONTAIN,
-                                    ),
-                                    on_click=lambda e, nid=need['id_potrzeba'], npot=need['id_potrzebujacego']: accept_need(e, nid, npot)
-                                )
-                            ],
-                        ),
-                    )
-                )
 
     content = ft.Column(
         scroll=ft.ScrollMode.AUTO,
@@ -269,10 +391,10 @@ def new_needs(page, user_id, menu_return):
             ft.Container(height=5),
             filter_card,
             ft.Container(height=10),
-            *cards
+            available_needs_view,
         ],
         alignment=ft.MainAxisAlignment.START,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
     page.add(

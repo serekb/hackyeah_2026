@@ -10,7 +10,8 @@ authors = [
 dependencies = [
     "flet>=0.85.3",
     "psycopg2-binary",
-    "python-dotenv"
+    "python-dotenv",
+    "geopy"
 ]
 
 [dependency-groups]
