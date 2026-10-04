@@ -27,7 +27,7 @@ def register_user(page: ft.Page, menu_return, user_type):
 
     page.appbar = ft.AppBar(
         leading=ft.Container(
-            content=ft.FilledButton("WRÓĆ", on_click=lambda e: run_login(page, menu_return, user_type), width=150, height=50),
+            content=ft.FilledButton(content=ft.Text("WRÓĆ", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)), on_click=lambda e: run_login(page, menu_return, user_type), width=150, height=50),
             padding=10  
         ),
         leading_width=200,
@@ -236,7 +236,7 @@ def run_login(page: ft.Page, menu_return, user_type, login_fail = "ok"):
 
     page.appbar = ft.AppBar(
         leading=ft.Container(
-            content=ft.FilledButton("WRÓĆ", on_click=lambda e: menu_return(), width=150, height=50),
+            content=ft.FilledButton(content=ft.Text("WRÓĆ", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), style=ft.ButtonStyle(bgcolor="#132434", shape=ft.RoundedRectangleBorder(radius=10)), on_click=lambda e: menu_return(), width=150, height=50),
             padding=10  
         ),
         leading_width=200,
