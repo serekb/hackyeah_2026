@@ -1,4 +1,6 @@
+import math
 import flet as ft
+import psycopg2
 import database as db
 
 def view_accepted_needs(page: ft.Page, user_id, menu_return):
@@ -110,8 +112,19 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
 
     page.add(view)
 
-def filter_needs(user_id):
-    """Return unassigned needs within 1 km of the volunteer."""
+def filter_needs(user_id, radius_km: str | None):
+    """Return unassigned needs within the requested radius of the volunteer."""
+    if radius_km is None:
+        raise ValueError("Podaj promień w kilometrach, np. 1 albo 2.5.")
+
+    try:
+        radius_km = float(radius_km.strip().replace(",", "."))
+    except ValueError as exc:
+        raise ValueError("Podaj promień w kilometrach, np. 1 albo 2.5.") from exc
+
+    if not math.isfinite(radius_km) or radius_km <= 0:
+        raise ValueError("Promień musi być dodatnią, skończoną liczbą kilometrów.")
+
     conn = db.get_db_connection()
     if conn is None:
         raise ConnectionError("Nie udało się połączyć z bazą danych.")
@@ -160,9 +173,9 @@ def filter_needs(user_id):
                       + COS(RADIANS(%s))
                       * COS(RADIANS(n.szerokosc_geograficzna))
                       * POWER(SIN(RADIANS(n.dlugosc_geograficzna - %s) / 2), 2)
-                  ))) <= 1;
+                  ))) <= %s;
                 """,
-                (latitude, latitude, longitude),
+                (latitude, latitude, longitude, radius_km),
             )
             return cur.fetchall()
     finally:
@@ -171,6 +184,7 @@ def filter_needs(user_id):
 
 def new_needs(page, user_id, menu_return):
     page.clean()
+    radius_field = ft.TextField(label="Kilometry", value="10", width=100)
     
     page.appbar = ft.AppBar(
         leading=ft.Container(
@@ -188,6 +202,86 @@ def new_needs(page, user_id, menu_return):
 
     cur.execute("SELECT imie, nazwisko, id_potrzebujacego from potrzebujacy where id_potrzebujacego IN (SELECT id_potrzebujacego FROM POTRZEBA WHERE id_potrzebujacego NOT IN (SELECT id_potrzebujacego FROM PRZYPISANIE WHERE id_wolontariusza = %s));", (str(user_id),))
     needy_infos = cur.fetchall()
+
+    def need_card(name, category, description):
+        return ft.Container(
+            bgcolor="#132434",
+            border_radius=10,
+            padding=15,
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                name,
+                                size=20,
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.WHITE,
+                            ),
+                            ft.Divider(color=ft.Colors.WHITE),
+                            ft.Text(category, size=16, color=ft.Colors.WHITE),
+                            ft.Divider(color=ft.Colors.WHITE),
+                            ft.Text(description or "", size=14, color=ft.Colors.WHITE),
+                        ],
+                        expand=True,
+                    ),
+                    ft.Image(
+                        src="src/assets/right_arrow.png",
+                        width=40,
+                        height=40,
+                        fit=ft.BoxFit.CONTAIN,
+                    ),
+                ],
+            ),
+        )
+
+    available_needs_view = ft.Column(
+        spacing=10,
+        controls=[
+            need_card(
+                f"{needy_info['imie']} {needy_info['nazwisko']}",
+                need["nazwa_potrzeba"],
+                need["opis"],
+            )
+            for need in needs
+            for needy_info in needy_infos
+            if need["id_potrzebujacego"] == needy_info["id_potrzebujacego"]
+        ],
+    )
+
+    def search_needs(_):
+        available_needs_view.controls.clear()
+        try:
+            needs = filter_needs(user_id, radius_field.value)
+        except (ConnectionError, ValueError) as exc:
+            available_needs_view.controls.append(
+                ft.Text(str(exc), color=ft.Colors.RED)
+            )
+        except psycopg2.Error as exc:
+            print(f"Błąd bazy danych podczas wyszukiwania potrzeb: {exc}")
+            available_needs_view.controls.append(
+                ft.Text(
+                    "Wystąpił błąd podczas wyszukiwania. Spróbuj ponownie.",
+                    color=ft.Colors.RED,
+                )
+            )
+        else:
+            if not needs:
+                available_needs_view.controls.append(
+                    ft.Text("Nie znaleziono potrzeb w podanym promieniu.")
+                )
+            else:
+                for need in needs:
+                    available_needs_view.controls.append(
+                        need_card(
+                            f"{need['imie']} {need['nazwisko']}",
+                            need["nazwa_potrzeba"],
+                            need["opis"],
+                        )
+                    )
+        page.update()
+
     content = ft.Column(
         scroll=ft.ScrollMode.AUTO,
         expand = True,
@@ -199,43 +293,16 @@ def new_needs(page, user_id, menu_return):
                         ft.Row(
                             controls = [
                                 ft.TextField(label="Adres", width=100),
-                                ft.TextField(label="10km", width=100)
+                                radius_field
                             ]
                         ),
-                        ft.FilledButton("SZUKAJ", on_click=lambda e: filter_needs(user_id), style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
+                        ft.FilledButton("SZUKAJ", on_click=search_needs, style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
                     ]
                 ),
                 border=ft.Border.all(3, ft.Colors.BLACK),
                 border_radius=10,
             ),
-            *[
-                ft.Container(
-                    bgcolor="#132434",
-                    border_radius=10,
-                    padding=15,
-                    content=ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        controls=[
-                            ft.Column(
-                                controls=[
-                                    ft.Text(needy_info['imie'] + " " + needy_info['nazwisko'], size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                    ft.Divider(color=ft.Colors.WHITE),
-                                    ft.Text(need['nazwa_potrzeba'], size=16, color=ft.Colors.WHITE),
-                                    ft.Divider(color=ft.Colors.WHITE),
-                                    ft.Text(need['opis'], size=14, color=ft.Colors.WHITE),
-                                ],
-                                expand=True,
-                            ),
-                            ft.Image(
-                                src="src/assets/right_arrow.png",
-                                width=40,
-                                height=40,
-                                fit=ft.BoxFit.CONTAIN,
-                            ),
-                        ],
-                    ),
-                ) for need in needs for needy_info in needy_infos if need['id_potrzebujacego'] == needy_info['id_potrzebujacego']
-            ]
+            available_needs_view,
         ]
     )
     page.add(content)

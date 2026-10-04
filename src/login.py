@@ -175,7 +175,15 @@ def verify_login(page, menu_return, user_type, number, password):
     if user_type == "Potrzebujący":
         cur.execute("SELECT * FROM hasla_potrzebujacych WHERE nr_tel = %s;", (str(number),))
     elif user_type == "Wolontariusz":
-        cur.execute("SELECT * FROM hasla_wolontariuszy WHERE nr_tel = %s;", (str(number),))
+        cur.execute(
+            """
+            SELECT h.haslo, w.id_wolontariusza AS id
+            FROM hasla_wolontariuszy h
+            JOIN wolontariusze w ON w.numer_telefonu = h.nr_tel
+            WHERE h.nr_tel = %s;
+            """,
+            (str(number),),
+        )
     else:
         pass #jakis wyjatek idk
 
