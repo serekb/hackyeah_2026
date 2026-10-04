@@ -491,16 +491,13 @@ def save_data_changes(page, user_id, address, number):
         import database as db
         conn = db.get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE potrzebujacy SET numer_telefonu = %s, adres_potrzebujacego = %s WHERE id_potrzebujacego = %s;", (str(number), str(address), str(user_id),))
-        
-        cur.execute("SELECT nr_tel FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
-        old_nr = cur.fetchone()['nr_tel'] if 'nr_tel' in [d[0] for d in cur.description] else None
-        if old_nr:
-            cur.execute("UPDATE hasla_potrzebujacych SET nr_tel = %s WHERE nr_tel = %s;", (str(number), str(old_nr)))
+
+        cur.execute(
+            "UPDATE potrzebujacy SET adres_potrzebujacego = %(address)s WHERE id_potrzebujacego = %(user_id)s;", 
+            {"address": str(address), "user_id": str(user_id)}
+        )
         
         conn.commit()
-        cur.close()
-        conn.close()
         snack = ft.SnackBar(ft.Text("Zapisano zmiany!", size=16), bgcolor=ft.Colors.GREEN)
         page.overlay.append(snack)
         snack.open = True
@@ -510,6 +507,9 @@ def save_data_changes(page, user_id, address, number):
         page.overlay.append(snack)
         snack.open = True
         page.update()
+    finally:
+        if 'cur' in locals(): cur.close()
+        if 'conn' in locals(): conn.close()
 
 def change_password(page: ft.Page, user_id, menu_return):
     page.clean()
