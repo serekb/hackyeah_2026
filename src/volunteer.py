@@ -1,5 +1,6 @@
 import flet as ft
 import database as db
+import login as lg
 
 def view_accepted_needs(page: ft.Page, user_id, menu_return):
     page.clean()
@@ -109,6 +110,8 @@ def view_accepted_needs(page: ft.Page, user_id, menu_return):
     )
 
     page.add(view)
+    cur.close()
+    conn.close()
 
 def new_needs(page, user_id, menu_return):
     page.clean()
@@ -180,6 +183,8 @@ def new_needs(page, user_id, menu_return):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def select_volunteer(page: ft.Page, menu_return, user_id):
     page.clean()
@@ -237,6 +242,8 @@ def accomplishments(page: ft.Page, user_id):
         )
 
     page.add(content)
+    cur.close()
+    conn.close()
 
 def view_profile(page: ft.Page, user_id):
     page.clean()
@@ -244,6 +251,9 @@ def view_profile(page: ft.Page, user_id):
     cur = conn.cursor()
     cur.execute("SELECT * FROM WOLONTARIUSZE WHERE id_wolontariusza = %s;", (str(user_id),))
     user = cur.fetchone()
+    address_field = ft.TextField(value=user['adres_wolontariusza'])
+    number_field = ft.TextField(value=user['numer_telefonu'])
+    org_field = ft.TextField(value=user['organizacja'])
     content = ft.Column(
         controls = [
             ft.Text("MOJE KONTO", size=20, color=ft.Colors.BLACK),
@@ -257,27 +267,30 @@ def view_profile(page: ft.Page, user_id):
                         ft.Text(f"Adres", size=15, color=ft.Colors.BLACK),
                         ft.Row(
                             controls = [
-                                ft.TextField(value=user['adres_wolontariusza']),
+                                address_field,
                                 ft.Image(src = "src/assets/edit.png")
                             ]
                         ),
                         ft.Text(f"Numer telefonu", size=15, color=ft.Colors.BLACK),
                         ft.Row(
                             controls = [
-                                ft.TextField(value=user['nr_tel']),
+                                number_field,
                                 ft.Image(src = "src/assets/edit.png")
                             ]
                         ),
                         ft.Text(f"Organizacja", size=15, color=ft.Colors.BLACK),
                         ft.Row(
                             controls = [
-                                ft.TextField(value=user['organizacja']),
+                                org_field,
                                 ft.Image(src = "src/assets/edit.png")
                             ]
                         ),
                     ]
                 )
             ),
+            ft.FilledButton("ZAPISZ ZMIANY", on_click=lambda e: save_data_changes(user['id_wolontariusza'], address_field.value,
+                                                                                  number_field.value, org_field.value),
+                             style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
             ft.FilledButton("ZMIEŃ HASŁO", on_click=lambda e: change_password(page, user['id_wolontariusza']),
                              style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
             ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_wolontariusza'], "wolontariusz"),
@@ -285,6 +298,19 @@ def view_profile(page: ft.Page, user_id):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
+
+def save_data_changes(user_id, address, number, org_field):
+    print("dziala")
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE WOLONTARIUSZE SET numer_telefonu = %s, adres_wolontariusza = %s, organizacja = %s WHERE id_wolontariusza = %s;", (str(number), str(address), str(org_field), str(user_id),))
+    conn.commit()
+    print("Zaktualizowano wierszy:", cur.rowcount)
+    cur.connection.commit()
+    cur.close()
+    conn.close()
 
 def change_password(page: ft.Page, user_id):
     page.clean()
@@ -308,6 +334,8 @@ def change_password(page: ft.Page, user_id):
         ]
     )
     page.add(content)
+    cur.close()
+    conn.close()
 
 def save_changes(page: ft.Page, user_id: int, old_password: str, new_password: str, confirm_password: str):
     conn = db.get_db_connection()
@@ -333,3 +361,4 @@ def delete_account(page, user_id, role):
     cur.execute(f"DELETE FROM {tabela} WHERE {kolumna} = %s;", (str(user_id),))
     conn.commit()
     conn.close()
+    lg.run_login()
