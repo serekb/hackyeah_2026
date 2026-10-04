@@ -225,7 +225,10 @@ def view_profile(page: ft.Page, user_id):
     conn = db.get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM potrzebujacy WHERE id_potrzebujacego = %s;", (str(user_id),))
+    cur.connection.commit()
     user = cur.fetchone()
+    address_field = ft.TextField(value=user['adres_potrzebujacego'])
+    number_field = ft.TextField(value=user['numer_telefonu'])
     content = ft.Column(
         controls = [
             ft.Text("MOJE KONTO", size=20, color=ft.Colors.BLACK),
@@ -237,12 +240,14 @@ def view_profile(page: ft.Page, user_id):
                         ft.Text(f"Nazwisko", size=15, color=ft.Colors.BLACK),
                         ft.TextField(value=user['nazwisko'], read_only=True),
                         ft.Text(f"Adres", size=15, color=ft.Colors.BLACK),
-                        ft.TextField(value=user['adres_potrzebujacego']),
+                        address_field,
                         ft.Text(f"Numer telefonu", size=15, color=ft.Colors.BLACK),
-                        ft.TextField(value=user['nr_tel'])
+                        number_field
                     ]
                 )
             ),
+            ft.FilledButton("ZAPISZ ZMIANY", on_click =lambda e: save_data_changes(user_id, address_field.value, number_field.value),
+                style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
             ft.FilledButton("ZMIEŃ HASŁO", on_click=lambda e: change_password(page, user['id_potrzebujacego']),
                              style=ft.ButtonStyle(bgcolor="#8b0333"), width=200, height=50),
             ft.FilledButton("USUŃ KONTO", on_click=lambda e: delete_account(page, user['id_potrzebujacego'], "potrzebujacy"),
@@ -250,6 +255,17 @@ def view_profile(page: ft.Page, user_id):
         ]
     )
     page.add(content)
+
+def save_data_changes(user_id, address, number):
+    print("dziala")
+    conn = db.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE potrzebujacy SET numer_telefonu = %s, adres_potrzebujacego = %s WHERE id_potrzebujacego = %s;", (str(number), str(address), str(user_id),))
+    conn.commit()
+    print("Zaktualizowano wierszy:", cur.rowcount)
+    cur.connection.commit()
+    cur.close()
+    conn.close()
 
 def change_password(page: ft.Page, user_id):
     page.clean()
